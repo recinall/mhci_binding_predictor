@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Esempio di utilizzo della libreria peptide_analysis.
+Example of using the peptide_analysis library.
 """
 
 import os
@@ -16,67 +16,67 @@ from peptide_analysis import (
 )
 
 def main():
-    parser = argparse.ArgumentParser(description="Analisi di peptidi 9-mer")
+    parser = argparse.ArgumentParser(description="Analysis of 9-mer peptides")
     
-    # Argomenti generali
+    # General arguments
     parser.add_argument("--mode", choices=["generate", "analyze", "visualize"], default="analyze",
-                        help="Modalità di esecuzione")
+                        help="Execution mode")
     parser.add_argument("--output-dir", default="output",
-                        help="Directory di output")
+                        help="Output directory")
     
-    # Argomenti per la generazione
+    # Arguments for generation
     parser.add_argument("--num-peptides", type=int, default=1000,
-                        help="Numero di peptidi da generare")
+                        help="Number of peptides to generate")
     
-    # Argomenti per l'analisi
+    # Arguments for analysis
     parser.add_argument("--input-csv", 
-                        help="File CSV di input con i peptidi")
+                        help="Input CSV file with peptides")
     parser.add_argument("--alleles", default="HLA-A*01:01,HLA-A*02:01",
-                        help="Lista di alleli HLA separati da virgola")
+                        help="Comma-separated list of HLA alleles")
     parser.add_argument("--batch-size", type=int, default=10,
-                        help="Dimensione del batch per le richieste")
+                        help="Batch size for requests")
     parser.add_argument("--percentile-threshold", type=float, default=10.0,
-                        help="Soglia di percentile rank per il filtraggio")
+                        help="Percentile rank threshold for filtering")
     parser.add_argument("--percentile-operator", default="<=", choices=["<", "<=", ">", ">=", "=="],
-                        help="Operatore di confronto per il filtraggio del percentile rank")
+                        help="Comparison operator for percentile rank filtering")
     
-    # Argomenti per la visualizzazione
+    # Arguments for visualization
     parser.add_argument("--results-csv", 
-                        help="File CSV con i risultati dell'analisi")
+                        help="CSV file with analysis results")
     
     args = parser.parse_args()
     
-    # Eseguiamo l'operazione richiesta
+    # Execute the requested operation
     if args.mode == "generate":
-        # Generiamo e analizziamo i peptidi
+        # Generate and analyze peptides
         peptides, results = generate_and_analyze_peptides(
             args.num_peptides, args.alleles, args.batch_size, args.output_dir
         )
-        print(f"Generati e analizzati {len(peptides)} peptidi")
+        print(f"Generated and analyzed {len(peptides)} peptides")
         
     elif args.mode == "analyze":
-        # Eseguiamo l'analisi completa
+        # Perform complete analysis
         report = run_complete_analysis(
             args.input_csv, args.num_peptides, args.alleles, 
             args.batch_size, args.output_dir, args.percentile_threshold,
             args.percentile_operator
         )
-        print("\nReport dell'analisi:")
+        print("\nAnalysis report:")
         for key, value in report.items():
             print(f"- {key}: {value}")
         
     elif args.mode == "visualize":
-        # Visualizziamo i risultati
+        # Visualize the results
         if not args.results_csv:
-            print("Errore: è necessario specificare --results-csv per la modalità visualize")
+            print("Error: you must specify --results-csv for visualize mode")
             return
         
         results = load_results_from_csv(args.results_csv)
         if not results:
-            print(f"Nessun risultato trovato in {args.results_csv}")
+            print(f"No results found in {args.results_csv}")
             return
             
-        # Filtriamo i risultati se è stata specificata una soglia
+        # Filter results if a threshold was specified
         if args.percentile_threshold is not None:
             results = filter_results_by_percentile(
                 results, args.percentile_threshold, args.percentile_operator
@@ -89,7 +89,7 @@ def main():
         plot_percentile_distribution(results, os.path.join(plots_dir, "percentile_distribution.png"))
         plot_allele_comparison(results, os.path.join(plots_dir, "allele_comparison.png"))
         
-        print(f"Grafici salvati in {plots_dir}")
+        print(f"Graphs saved to {plots_dir}")
 
 if __name__ == "__main__":
     main()
