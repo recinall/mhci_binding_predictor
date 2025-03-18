@@ -1,0 +1,14 @@
+README.md
+setup.py
+peptide_analysis/__init__.py
+peptide_analysis/main.py
+peptide_analysis/peptide_analyzer.py
+peptide_analysis/peptide_generator.py
+peptide_analysis/sequence_variants.py
+peptide_analysis/utils.py
+peptide_analysis/visualization.py
+peptide_analysis.egg-info/PKG-INFO
+peptide_analysis.egg-info/SOURCES.txt
+peptide_analysis.egg-info/dependency_links.txt
+peptide_analysis.egg-info/requires.txt
+peptide_analysis.egg-info/top_level.txt

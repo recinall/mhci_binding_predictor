@@ -1,0 +1,21 @@
+Metadata-Version: 2.2
+Name: peptide_analysis
+Version: 0.1.0
+Summary: Una libreria per la generazione, analisi e visualizzazione di peptidi 9-mer
+Author: Peptide Analysis Team
+Author-email: info@peptideanalysis.org
+Keywords: peptide,bioinformatics,MHC,HLA,immunology
+Requires-Python: >=3.6
+Requires-Dist: requests
+Requires-Dist: pandas
+Requires-Dist: matplotlib
+Requires-Dist: seaborn
+Requires-Dist: tqdm
+Requires-Dist: numpy
+Requires-Dist: openpyxl
+Dynamic: author
+Dynamic: author-email
+Dynamic: keywords
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
