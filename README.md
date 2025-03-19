@@ -1,11 +1,12 @@
 # Peptide Analysis Library
 
-Una libreria Python completa per la generazione, analisi e visualizzazione di peptidi 9-mer, con particolare attenzione all'analisi di binding MHC-I tramite il servizio IEDB.
+Una libreria Python completa per la generazione, analisi e visualizzazione di peptidi 9-mer, con particolare attenzione all'analisi di binding MHC-I tramite il servizio IEDB e alla predizione dell'immunogenicità.
 
 ## Caratteristiche
 
 - **Generazione di peptidi**: Creazione di peptidi 9-mer casuali da sequenze proteiche
 - **Analisi di binding MHC-I**: Integrazione con il servizio IEDB per la predizione di binding
+- **Predizione dell'immunogenicità**: Implementazione dell'algoritmo di Calis et al. (2013) per la predizione dell'immunogenicità dei peptidi
 - **Generazione di varianti di sequenze**: Creazione di tutte le possibili varianti di sequenze peptidiche
 - **Visualizzazione dei risultati**: Grafici per l'analisi dei risultati (distribuzione degli score, percentile rank, ecc.)
 - **Filtraggio dei risultati**: Possibilità di filtrare i risultati in base al percentile rank
@@ -88,6 +89,33 @@ results = load_results_from_csv("results.csv")
 filtered_results = filter_results_by_percentile(results, threshold=1.0, operator="<")
 ```
 
+### Predizione dell'immunogenicità
+
+```python
+from peptide_analysis import predict_peptide_immunogenicity, print_available_immunogenicity_alleles
+
+# Mostra gli alleli disponibili per la predizione dell'immunogenicità
+print_available_immunogenicity_alleles()
+
+# Predici l'immunogenicità di una lista di peptidi
+peptides = ["GILGFVFTL", "NLVPMVATV", "CINGVCWTV"]
+results = predict_peptide_immunogenicity(
+    peptides=peptides,
+    allele="HLA-A0201",  # Opzionale
+    custom_mask="1,2,9",  # Opzionale
+    output_csv="immunogenicity_results.csv"  # Opzionale
+)
+
+# Analisi completa dell'immunogenicità
+from peptide_analysis import analyze_peptide_immunogenicity
+
+report = analyze_peptide_immunogenicity(
+    peptides=peptides,
+    allele="HLA-A0201",
+    output_dir="immunogenicity_output"
+)
+```
+
 ### Visualizzazione dei risultati
 
 ```python
@@ -122,6 +150,12 @@ python peptide_analysis/examples/sequence_variants_example.py --output-dir varia
 
 # Filtraggio dei risultati
 python peptide_analysis/examples/filter_results.py --results-csv output/results.csv --percentile-threshold 1.0 --percentile-operator "<" --output-dir filtered_results
+
+# Predizione dell'immunogenicità
+python peptide_analysis/examples/immunogenicity_example.py --peptides GILGFVFTL NLVPMVATV CINGVCWTV --allele HLA-A0201 --output-dir immunogenicity_test
+
+# Visualizzazione degli alleli disponibili per l'immunogenicità
+python peptide_analysis/examples/immunogenicity_example.py --list-alleles
 ```
 
 ## Struttura della libreria

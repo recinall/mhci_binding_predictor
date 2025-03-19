@@ -49,6 +49,73 @@ def plot_score_distribution(results, output_file=None):
     
     return fig
 
+def plot_immunogenicity_correlation(results, output_file=None):
+    """
+    Crea un grafico di correlazione tra percentile rank e score di immunogenicità.
+    
+    Parametri:
+    results (list): Lista di risultati dell'analisi
+    output_file (str): Nome del file di output (opzionale)
+    
+    Returns:
+    matplotlib.figure.Figure: Figura creata
+    """
+    # Convertiamo i risultati in un DataFrame
+    df = pd.DataFrame(results)
+    
+    # Verifichiamo che ci siano i dati di immunogenicità
+    if 'immunogenicity_score' not in df.columns:
+        print("Dati di immunogenicità non presenti nei risultati.")
+        return None
+    
+    # Rimuoviamo le righe con valori nulli
+    df = df.dropna(subset=['immunogenicity_score'])
+    
+    # Creiamo la figura
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    # Creiamo uno scatter plot
+    scatter = sns.scatterplot(
+        x='percentile_rank', 
+        y='immunogenicity_score', 
+        hue='allele',
+        data=df, 
+        alpha=0.7,
+        ax=ax
+    )
+    
+    # Aggiungiamo titolo e label
+    ax.set_title('Correlazione tra percentile rank e immunogenicità', fontsize=16)
+    ax.set_xlabel('Percentile Rank (binding MHC-I)', fontsize=14)
+    ax.set_ylabel('Score di immunogenicità', fontsize=14)
+    
+    # Aggiungiamo una griglia
+    ax.grid(True, linestyle='--', alpha=0.7)
+    
+    # Aggiungiamo una linea di regressione per ogni allele
+    alleles = df['allele'].unique()
+    for allele in alleles:
+        allele_data = df[df['allele'] == allele]
+        if len(allele_data) > 1:  # Verifichiamo che ci siano abbastanza dati
+            sns.regplot(
+                x='percentile_rank', 
+                y='immunogenicity_score', 
+                data=allele_data,
+                scatter=False,
+                ax=ax,
+                label=f"Trend {allele}"
+            )
+    
+    # Aggiustiamo il layout
+    plt.tight_layout()
+    
+    # Salviamo la figura se è stato specificato un file di output
+    if output_file:
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
+        print(f"Grafico di correlazione immunogenicità salvato in {output_file}")
+    
+    return fig
+
 def plot_percentile_distribution(results, output_file=None):
     """
     Crea un grafico della distribuzione dei percentile rank per ogni allele.

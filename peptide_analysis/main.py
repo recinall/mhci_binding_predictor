@@ -3,6 +3,7 @@ Modulo principale che combina tutte le funzionalità della libreria.
 """
 
 import os
+import csv
 from .peptide_generator import generate_peptides_pipeline
 from .peptide_analyzer import analyze_peptides, process_peptides_from_csv
 from .visualization import plot_score_distribution, plot_percentile_distribution, plot_allele_comparison
@@ -39,7 +40,7 @@ def generate_and_analyze_peptides(num_peptides=1000, allele_list="HLA-A*01:01,HL
 
 def run_complete_analysis(input_csv=None, num_peptides=1000, allele_list="HLA-A*01:01,HLA-A*02:01", 
                          batch_size=10, output_dir="output", percentile_threshold=10.0, 
-                         percentile_operator="<="):
+                         percentile_operator="<=", include_immunogenicity=True):
     """
     Esegue un'analisi completa dei peptidi, inclusa la visualizzazione.
     
@@ -74,6 +75,45 @@ def run_complete_analysis(input_csv=None, num_peptides=1000, allele_list="HLA-A*
     # Filtriamo i risultati
     filtered_results = filter_results_by_percentile(results, percentile_threshold, percentile_operator)
     
+    # Aggiungiamo l'analisi di immunogenicità se richiesto
+    if include_immunogenicity:
+        print("\nAggiunta dell'analisi di immunogenicità...")
+        # Estrai i peptidi unici dai risultati
+        unique_peptides = list(set([r['peptide'] for r in results]))
+        
+        # Directory per i risultati di immunogenicità
+        immuno_dir = os.path.join(output_dir, "immunogenicity")
+        ensure_directory(immuno_dir)
+        
+        # Analizziamo l'immunogenicità dei peptidi
+        immuno_results = predict_peptide_immunogenicity(
+            unique_peptides, 
+            output_csv=os.path.join(immuno_dir, "immunogenicity_results.csv")
+        )
+        
+        # Creiamo un dizionario per mappare peptidi a score di immunogenicità
+        immuno_scores = {r['peptide']: r['score'] for r in immuno_results}
+        
+        # Aggiungiamo lo score di immunogenicità ai risultati originali
+        for r in results:
+            r['immunogenicity_score'] = immuno_scores.get(r['peptide'], None)
+        
+        # Aggiungiamo lo score di immunogenicità ai risultati filtrati
+        for r in filtered_results:
+            r['immunogenicity_score'] = immuno_scores.get(r['peptide'], None)
+        
+        # Salviamo i risultati completi in un nuovo file CSV
+        complete_results_csv = os.path.join(output_dir, "complete_results.csv")
+        with open(complete_results_csv, 'w', newline='') as csvfile:
+            fieldnames = ['peptide', 'allele', 'score', 'percentile_rank', 'immunogenicity_score']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for result in results:
+                writer.writerow(result)
+        
+        print(f"Risultati completi con immunogenicità salvati in {complete_results_csv}")
+    
     # Creiamo i grafici
     plots_dir = os.path.join(output_dir, "plots")
     ensure_directory(plots_dir)
@@ -90,6 +130,12 @@ def run_complete_analysis(input_csv=None, num_peptides=1000, allele_list="HLA-A*
         results, os.path.join(plots_dir, "allele_comparison.png")
     )
     
+    # Aggiungiamo il grafico di correlazione tra binding e immunogenicità se abbiamo i dati
+    if include_immunogenicity:
+        immuno_plot = plot_immunogenicity_correlation(
+            results, os.path.join(plots_dir, "immunogenicity_correlation.png")
+        )
+    
     # Creiamo un report con i risultati
     report = {
         "total_peptides": len(peptides),
@@ -98,13 +144,20 @@ def run_complete_analysis(input_csv=None, num_peptides=1000, allele_list="HLA-A*
         "alleles": allele_list.split(","),
         "percentile_threshold": percentile_threshold,
         "percentile_operator": percentile_operator,
-        "output_directory": os.path.abspath(output_dir)
+        "output_directory": os.path.abspath(output_dir),
+        "include_immunogenicity": include_immunogenicity
     }
+    
+    if include_immunogenicity:
+        report["immunogenicity_results"] = len(immuno_results)
     
     print("\nAnalisi completata:")
     print(f"- Peptidi analizzati: {report['total_peptides']}")
     print(f"- Risultati totali: {report['total_results']}")
     print(f"- Risultati con percentile rank {percentile_operator} {percentile_threshold}: {report['filtered_results']}")
+    if include_immunogenicity:
+        print(f"- Risultati di immunogenicità: {report['immunogenicity_results']}")
+        print(f"- Risultati completi con immunogenicità: {complete_results_csv}")
     print(f"- Grafici salvati in: {plots_dir}")
     
     return report
