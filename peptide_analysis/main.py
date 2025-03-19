@@ -8,6 +8,7 @@ from .peptide_analyzer import analyze_peptides, process_peptides_from_csv
 from .visualization import plot_score_distribution, plot_percentile_distribution, plot_allele_comparison
 from .utils import load_peptides_from_csv, load_results_from_csv, ensure_directory, filter_results_by_percentile
 from .sequence_variants import generate_sequence_variants, save_variants_to_csv, generate_all_variants
+from .immunogenicity import predict_peptide_immunogenicity, get_available_immunogenicity_alleles
 
 def generate_and_analyze_peptides(num_peptides=1000, allele_list="HLA-A*01:01,HLA-A*02:01", 
                                  batch_size=10, output_dir="output"):
@@ -105,6 +106,61 @@ def run_complete_analysis(input_csv=None, num_peptides=1000, allele_list="HLA-A*
     print(f"- Risultati totali: {report['total_results']}")
     print(f"- Risultati con percentile rank {percentile_operator} {percentile_threshold}: {report['filtered_results']}")
     print(f"- Grafici salvati in: {plots_dir}")
+    
+    return report
+
+def analyze_peptide_immunogenicity(peptides=None, input_csv=None, custom_mask=None, 
+                                  allele=None, output_dir="immunogenicity_output"):
+    """
+    Analizza l'immunogenicità di peptidi.
+    
+    Parametri:
+    peptides (list): Lista di peptidi da analizzare (opzionale)
+    input_csv (str): File CSV di input contenente i peptidi (opzionale)
+    custom_mask (str): Maschera personalizzata (opzionale)
+    allele (str): Allele HLA da utilizzare (opzionale)
+    output_dir (str): Directory di output
+    
+    Returns:
+    dict: Dizionario con i risultati dell'analisi
+    """
+    # Assicuriamo che la directory di output esista
+    ensure_directory(output_dir)
+    
+    # Determiniamo se dobbiamo caricare peptidi da un file
+    if not peptides and input_csv and os.path.exists(input_csv):
+        print(f"Caricamento peptidi da {input_csv}")
+        peptides = load_peptides_from_csv(input_csv)
+    
+    if not peptides:
+        print("Nessun peptide da analizzare.")
+        return {"error": "Nessun peptide da analizzare"}
+    
+    # File di output per i risultati
+    output_csv = os.path.join(output_dir, "immunogenicity_results.csv")
+    
+    # Analizziamo l'immunogenicità dei peptidi
+    print(f"Analisi dell'immunogenicità di {len(peptides)} peptidi...")
+    results = predict_peptide_immunogenicity(peptides, custom_mask, allele, output_csv)
+    
+    # Creiamo un report con i risultati
+    report = {
+        "total_peptides": len(peptides),
+        "total_results": len(results),
+        "allele": allele,
+        "custom_mask": custom_mask,
+        "output_directory": os.path.abspath(output_dir),
+        "output_csv": output_csv
+    }
+    
+    print("\nAnalisi dell'immunogenicità completata:")
+    print(f"- Peptidi analizzati: {report['total_peptides']}")
+    print(f"- Risultati totali: {report['total_results']}")
+    if allele:
+        print(f"- Allele utilizzato: {allele}")
+    if custom_mask:
+        print(f"- Maschera personalizzata: {custom_mask}")
+    print(f"- Risultati salvati in: {output_csv}")
     
     return report
 
