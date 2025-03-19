@@ -113,6 +113,79 @@ def filter_results_by_percentile(results, threshold=1.0, operator="<="):
     
     return filtered
 
+def filter_results_by_immunogenicity(results, threshold=0.0, operator=">"):
+    """
+    Filtra i risultati in base allo score di immunogenicità.
+    
+    Parametri:
+    results (list): Lista di risultati
+    threshold (float): Soglia di immunogenicità (default: 0.0)
+    operator (str): Operatore di confronto ("<", "<=", ">", ">=", "==")
+    
+    Returns:
+    list: Lista di risultati filtrati
+    """
+    # Verifichiamo che i risultati contengano lo score di immunogenicità
+    if not results or 'immunogenicity_score' not in results[0]:
+        print("I risultati non contengono lo score di immunogenicità.")
+        return results
+    
+    # Filtriamo solo i risultati che hanno un valore di immunogenicità (non None)
+    valid_results = [r for r in results if r['immunogenicity_score'] is not None]
+    
+    if operator == "<":
+        filtered = [r for r in valid_results if r['immunogenicity_score'] < threshold]
+        print(f"Filtrati {len(filtered)} risultati con immunogenicity score < {threshold}")
+    elif operator == "<=":
+        filtered = [r for r in valid_results if r['immunogenicity_score'] <= threshold]
+        print(f"Filtrati {len(filtered)} risultati con immunogenicity score <= {threshold}")
+    elif operator == ">":
+        filtered = [r for r in valid_results if r['immunogenicity_score'] > threshold]
+        print(f"Filtrati {len(filtered)} risultati con immunogenicity score > {threshold}")
+    elif operator == ">=":
+        filtered = [r for r in valid_results if r['immunogenicity_score'] >= threshold]
+        print(f"Filtrati {len(filtered)} risultati con immunogenicity score >= {threshold}")
+    elif operator == "==":
+        filtered = [r for r in valid_results if r['immunogenicity_score'] == threshold]
+        print(f"Filtrati {len(filtered)} risultati con immunogenicity score == {threshold}")
+    else:
+        print(f"Operatore '{operator}' non valido. Utilizzo dell'operatore '>'")
+        filtered = [r for r in valid_results if r['immunogenicity_score'] > threshold]
+        print(f"Filtrati {len(filtered)} risultati con immunogenicity score > {threshold}")
+    
+    return filtered
+
+def filter_results_combined(results, percentile_threshold=1.0, percentile_operator="<=", 
+                           immunogenicity_threshold=0.0, immunogenicity_operator=">"):
+    """
+    Filtra i risultati in base sia al percentile rank che allo score di immunogenicità.
+    
+    Parametri:
+    results (list): Lista di risultati
+    percentile_threshold (float): Soglia di percentile rank (default: 1.0)
+    percentile_operator (str): Operatore di confronto per percentile ("<", "<=", ">", ">=", "==")
+    immunogenicity_threshold (float): Soglia di immunogenicità (default: 0.0)
+    immunogenicity_operator (str): Operatore di confronto per immunogenicità ("<", "<=", ">", ">=", "==")
+    
+    Returns:
+    list: Lista di risultati filtrati
+    """
+    # Prima filtriamo per percentile rank
+    filtered_by_percentile = filter_results_by_percentile(
+        results, percentile_threshold, percentile_operator
+    )
+    
+    # Poi filtriamo per immunogenicità
+    filtered_combined = filter_results_by_immunogenicity(
+        filtered_by_percentile, immunogenicity_threshold, immunogenicity_operator
+    )
+    
+    print(f"Filtrati {len(filtered_combined)} risultati con entrambi i criteri:")
+    print(f"- Percentile rank {percentile_operator} {percentile_threshold}")
+    print(f"- Immunogenicity score {immunogenicity_operator} {immunogenicity_threshold}")
+    
+    return filtered_combined
+
 def export_results_to_excel(results, output_file):
     """
     Esporta i risultati in un file Excel.

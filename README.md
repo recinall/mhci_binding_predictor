@@ -82,13 +82,25 @@ report = analyze_sequence_variants(
 ### Filtraggio dei risultati
 
 ```python
-from peptide_analysis import load_results_from_csv, filter_results_by_percentile
+from peptide_analysis import load_results_from_csv, filter_results_by_percentile, filter_results_by_immunogenicity, filter_results_combined
 
 # Carica i risultati da un file CSV
 results = load_results_from_csv("results.csv")
 
 # Filtra i risultati con percentile rank < 1.0
-filtered_results = filter_results_by_percentile(results, threshold=1.0, operator="<")
+filtered_by_percentile = filter_results_by_percentile(results, threshold=1.0, operator="<")
+
+# Filtra i risultati con immunogenicity score > 0
+filtered_by_immunogenicity = filter_results_by_immunogenicity(results, threshold=0.0, operator=">")
+
+# Filtra i risultati con entrambi i criteri
+filtered_combined = filter_results_combined(
+    results,
+    percentile_threshold=0.5,
+    percentile_operator="<",
+    immunogenicity_threshold=0.0,
+    immunogenicity_operator=">"
+)
 ```
 
 ### Predizione dell'immunogenicità e categorizzazione
@@ -167,6 +179,9 @@ python peptide_analysis/examples/sequence_variants_example.py --output-dir varia
 
 # Filtraggio dei risultati
 python peptide_analysis/examples/filter_results.py --results-csv output/results.csv --percentile-threshold 1.0 --percentile-operator "<" --output-dir filtered_results
+
+# Filtraggio combinato (percentile rank e immunogenicità)
+python peptide_analysis/examples/filter_combined_results.py --results-csv output/complete_results.csv --percentile-threshold 0.5 --percentile-operator "<" --immunogenicity-threshold 0.0 --immunogenicity-operator ">" --output-dir filtered_combined
 
 # Predizione dell'immunogenicità
 python peptide_analysis/examples/immunogenicity_example.py --peptides GILGFVFTL NLVPMVATV CINGVCWTV --allele HLA-A0201 --output-dir immunogenicity_test
