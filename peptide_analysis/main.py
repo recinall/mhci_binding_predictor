@@ -6,7 +6,7 @@ import os
 import csv
 from .peptide_generator import generate_peptides_pipeline
 from .peptide_analyzer import analyze_peptides, process_peptides_from_csv
-from .visualization import plot_score_distribution, plot_percentile_distribution, plot_allele_comparison
+from .visualization import plot_score_distribution, plot_percentile_distribution, plot_allele_comparison, plot_immunogenicity_correlation
 from .utils import load_peptides_from_csv, load_results_from_csv, ensure_directory, filter_results_by_percentile
 from .sequence_variants import generate_sequence_variants, save_variants_to_csv, generate_all_variants
 from .immunogenicity import predict_peptide_immunogenicity, get_available_immunogenicity_alleles
