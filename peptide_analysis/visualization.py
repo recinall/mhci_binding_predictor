@@ -49,6 +49,88 @@ def plot_score_distribution(results, output_file=None):
     
     return fig
 
+def plot_category_distribution(results, output_file=None):
+    """
+    Crea un grafico della distribuzione delle categorie di peptidi.
+    
+    Parametri:
+    results (list): Lista di risultati dell'analisi
+    output_file (str): Nome del file di output (opzionale)
+    
+    Returns:
+    matplotlib.figure.Figure: Figura creata
+    """
+    # Convertiamo i risultati in un DataFrame
+    df = pd.DataFrame(results)
+    
+    # Verifichiamo che ci siano i dati di categoria
+    if 'categoria' not in df.columns:
+        print("Dati di categoria non presenti nei risultati.")
+        return None
+    
+    # Contiamo le occorrenze di ogni categoria
+    category_counts = df['categoria'].value_counts().reset_index()
+    category_counts.columns = ['Categoria', 'Conteggio']
+    
+    # Ordine personalizzato delle categorie
+    category_order = ['Eccellente', 'Buono', 'Da considerare', 'Da scartare', 'Non determinato']
+    
+    # Filtriamo e ordiniamo le categorie
+    category_counts['Categoria'] = pd.Categorical(
+        category_counts['Categoria'], 
+        categories=category_order, 
+        ordered=True
+    )
+    category_counts = category_counts.sort_values('Categoria')
+    
+    # Creiamo la figura
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # Definiamo i colori per le categorie
+    colors = {
+        'Eccellente': 'darkgreen',
+        'Buono': 'green',
+        'Da considerare': 'orange',
+        'Da scartare': 'red',
+        'Non determinato': 'gray'
+    }
+    
+    # Creiamo il grafico a barre
+    bars = sns.barplot(
+        x='Categoria', 
+        y='Conteggio', 
+        data=category_counts,
+        palette=[colors.get(cat, 'blue') for cat in category_counts['Categoria']],
+        ax=ax
+    )
+    
+    # Aggiungiamo le etichette con i conteggi sopra le barre
+    for i, p in enumerate(bars.patches):
+        ax.annotate(
+            f'{int(p.get_height())}', 
+            (p.get_x() + p.get_width() / 2., p.get_height()),
+            ha='center', va='bottom',
+            fontsize=12
+        )
+    
+    # Aggiungiamo titolo e label
+    ax.set_title('Distribuzione delle categorie di peptidi', fontsize=16)
+    ax.set_xlabel('Categoria', fontsize=14)
+    ax.set_ylabel('Numero di peptidi', fontsize=14)
+    
+    # Aggiungiamo una griglia
+    ax.grid(True, linestyle='--', alpha=0.7, axis='y')
+    
+    # Aggiustiamo il layout
+    plt.tight_layout()
+    
+    # Salviamo la figura se è stato specificato un file di output
+    if output_file:
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
+        print(f"Grafico della distribuzione delle categorie salvato in {output_file}")
+    
+    return fig
+
 def plot_immunogenicity_correlation(results, output_file=None):
     """
     Crea un grafico di correlazione tra percentile rank e score di immunogenicità.

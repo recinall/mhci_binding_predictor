@@ -96,20 +96,78 @@ def run_complete_analysis(input_csv=None, num_peptides=1000, allele_list="HLA-A*
         
         # Aggiungiamo lo score di immunogenicità ai risultati originali
         for r in results:
-            r['immunogenicity_score'] = immuno_scores.get(r['peptide'], None)
+            peptide = r['peptide']
+            allele = r['allele'].replace('*', '').replace(':', '')
+            
+            # Calcoliamo l'immunogenicità specifica per l'allele
+            allele_specific_results = predict_peptide_immunogenicity([peptide], allele=allele)
+            if allele_specific_results:
+                r['immunogenicity_score'] = allele_specific_results[0]['score']
+            else:
+                # Fallback al valore generico se non disponibile per l'allele specifico
+                r['immunogenicity_score'] = immuno_scores.get(peptide, None)
+            
+            # Aggiungiamo la categoria e il punteggio composito
+            if r['immunogenicity_score'] is not None and r['score'] is not None and r['percentile_rank'] is not None:
+                # Calcolo del punteggio composito
+                r['punteggio_composito'] = (r['immunogenicity_score'] * 0.5) + ((1 - r['percentile_rank']/100) * 0.3) + (r['score'] * 0.2)
+                r['punteggio_composito'] = round(r['punteggio_composito'], 4)
+                
+                # Determinazione della categoria
+                if r['immunogenicity_score'] > 0.3 and r['percentile_rank'] < 0.1 and r['score'] > 0.95:
+                    r['categoria'] = 'Eccellente'
+                elif r['immunogenicity_score'] > 0 and r['percentile_rank'] < 0.5 and r['score'] > 0.9:
+                    r['categoria'] = 'Buono'
+                elif r['immunogenicity_score'] > 0 and r['percentile_rank'] < 1.0 and r['score'] > 0.8:
+                    r['categoria'] = 'Da considerare'
+                else:
+                    r['categoria'] = 'Da scartare'
+            else:
+                r['punteggio_composito'] = None
+                r['categoria'] = 'Non determinato'
         
-        # Aggiungiamo lo score di immunogenicità ai risultati filtrati
+        # Aggiungiamo lo score di immunogenicità, categoria e punteggio composito ai risultati filtrati
         for r in filtered_results:
-            r['immunogenicity_score'] = immuno_scores.get(r['peptide'], None)
+            peptide = r['peptide']
+            allele = r['allele'].replace('*', '').replace(':', '')
+            
+            # Calcoliamo l'immunogenicità specifica per l'allele
+            allele_specific_results = predict_peptide_immunogenicity([peptide], allele=allele)
+            if allele_specific_results:
+                r['immunogenicity_score'] = allele_specific_results[0]['score']
+            else:
+                # Fallback al valore generico se non disponibile per l'allele specifico
+                r['immunogenicity_score'] = immuno_scores.get(peptide, None)
+            
+            # Aggiungiamo la categoria e il punteggio composito
+            if r['immunogenicity_score'] is not None and r['score'] is not None and r['percentile_rank'] is not None:
+                # Calcolo del punteggio composito
+                r['punteggio_composito'] = (r['immunogenicity_score'] * 0.5) + ((1 - r['percentile_rank']/100) * 0.3) + (r['score'] * 0.2)
+                r['punteggio_composito'] = round(r['punteggio_composito'], 4)
+                
+                # Determinazione della categoria
+                if r['immunogenicity_score'] > 0.3 and r['percentile_rank'] < 0.1 and r['score'] > 0.95:
+                    r['categoria'] = 'Eccellente'
+                elif r['immunogenicity_score'] > 0 and r['percentile_rank'] < 0.5 and r['score'] > 0.9:
+                    r['categoria'] = 'Buono'
+                elif r['immunogenicity_score'] > 0 and r['percentile_rank'] < 1.0 and r['score'] > 0.8:
+                    r['categoria'] = 'Da considerare'
+                else:
+                    r['categoria'] = 'Da scartare'
+            else:
+                r['punteggio_composito'] = None
+                r['categoria'] = 'Non determinato'
         
         # Salviamo i risultati completi in un nuovo file CSV
         complete_results_csv = os.path.join(output_dir, "complete_results.csv")
         with open(complete_results_csv, 'w', newline='') as csvfile:
-            fieldnames = ['peptide', 'allele', 'score', 'percentile_rank', 'immunogenicity_score']
+            fieldnames = ['peptide', 'allele', 'score', 'percentile_rank', 'immunogenicity_score', 'punteggio_composito', 'categoria']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             
-            for result in results:
+            # Ordiniamo i risultati per punteggio composito decrescente
+            sorted_results = sorted(results, key=lambda x: (x.get('punteggio_composito') or -999), reverse=True)
+            for result in sorted_results:
                 writer.writerow(result)
         
         print(f"Risultati completi con immunogenicità salvati in {complete_results_csv}")
@@ -134,6 +192,11 @@ def run_complete_analysis(input_csv=None, num_peptides=1000, allele_list="HLA-A*
     if include_immunogenicity:
         immuno_plot = plot_immunogenicity_correlation(
             results, os.path.join(plots_dir, "immunogenicity_correlation.png")
+        )
+        
+        # Aggiungiamo il grafico della distribuzione delle categorie
+        category_plot = plot_category_distribution(
+            results, os.path.join(plots_dir, "category_distribution.png")
         )
     
     # Creiamo un report con i risultati

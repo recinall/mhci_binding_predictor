@@ -7,6 +7,8 @@ Una libreria Python completa per la generazione, analisi e visualizzazione di pe
 - **Generazione di peptidi**: Creazione di peptidi 9-mer casuali da sequenze proteiche
 - **Analisi di binding MHC-I**: Integrazione con il servizio IEDB per la predizione di binding
 - **Predizione dell'immunogenicità**: Implementazione dell'algoritmo di Calis et al. (2013) per la predizione dell'immunogenicità dei peptidi
+- **Categorizzazione degli epitopi**: Classificazione automatica dei peptidi in base a score, percentile rank e immunogenicità
+- **Punteggio composito**: Calcolo di un punteggio che combina binding MHC-I e immunogenicità
 - **Generazione di varianti di sequenze**: Creazione di tutte le possibili varianti di sequenze peptidiche
 - **Visualizzazione dei risultati**: Grafici per l'analisi dei risultati (distribuzione degli score, percentile rank, ecc.)
 - **Filtraggio dei risultati**: Possibilità di filtrare i risultati in base al percentile rank
@@ -89,7 +91,7 @@ results = load_results_from_csv("results.csv")
 filtered_results = filter_results_by_percentile(results, threshold=1.0, operator="<")
 ```
 
-### Predizione dell'immunogenicità
+### Predizione dell'immunogenicità e categorizzazione
 
 ```python
 from peptide_analysis import predict_peptide_immunogenicity, print_available_immunogenicity_alleles
@@ -114,6 +116,21 @@ report = analyze_peptide_immunogenicity(
     allele="HLA-A0201",
     output_dir="immunogenicity_output"
 )
+
+# Analisi completa con categorizzazione automatica
+from peptide_analysis import run_complete_analysis
+
+report = run_complete_analysis(
+    peptides=peptides,
+    allele_list="HLA-A*02:01",
+    output_dir="complete_analysis",
+    include_immunogenicity=True  # Abilita la categorizzazione automatica
+)
+
+# I risultati includeranno:
+# - Punteggio di immunogenicità specifico per allele
+# - Categoria (Eccellente, Buono, Da considerare, Da scartare)
+# - Punteggio composito che combina binding e immunogenicità
 ```
 
 ### Visualizzazione dei risultati
