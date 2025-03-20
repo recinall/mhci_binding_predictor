@@ -19,6 +19,11 @@ Una libreria Python completa per la generazione, analisi e visualizzazione di pe
 
 La classe `Immunogenicity` implementa l'algoritmo di predizione dell'immunogenicità descritto in Calis et al. (2013).
 
+**Attributi principali:**
+- `allele_dict`: Dizionario degli alleli disponibili con le posizioni mascherate per ciascuno
+- `immunoscale`: Scala di immunogenicità per gli amminoacidi (valori derivati da Calis et al.)
+- `immunoweight`: Pesi per le diverse posizioni nel peptide
+
 **Metodi principali:**
 - `predict_immunogenicity(peptides, custom_mask=None, allele=None)`: Predice l'immunogenicità di una lista di peptidi
 - `validate_peptides(peptides, custom_mask=None, allele=None)`: Valida i peptidi prima della predizione
@@ -26,70 +31,150 @@ La classe `Immunogenicity` implementa l'algoritmo di predizione dell'immunogenic
 - `get_available_alleles()`: Restituisce la lista degli alleli disponibili
 - `print_available_alleles()`: Stampa la lista degli alleli disponibili
 
+**Funzionamento:**
+La classe calcola l'immunogenicità di un peptide assegnando punteggi a ciascun amminoacido in base alla sua posizione nel peptide, escludendo le posizioni mascherate che sono tipicamente coinvolte nel binding MHC. I pesi delle posizioni e i valori degli amminoacidi sono derivati dall'analisi statistica di Calis et al. (2013).
+
 ### PeptideGenerator
 
 La classe `PeptideGenerator` si occupa della generazione di peptidi 9-mer casuali da sequenze proteiche.
 
-**Metodi principali:**
-- `download_swissprot_data()`: Scarica i dati da SwissProt
-- `generate_9mers(protein_sequences, num_peptides)`: Genera peptidi 9-mer casuali
+**Funzioni principali:**
+- `download_swissprot_data()`: Scarica i dati da SwissProt o genera sequenze proteiche sintetiche
+- `generate_9mers(protein_sequences, num_peptides)`: Genera peptidi 9-mer casuali dalle sequenze proteiche
 - `save_to_csv(peptides, filename)`: Salva i peptidi generati in un file CSV
 - `generate_peptides_pipeline(num_peptides, output_file)`: Pipeline completa per la generazione di peptidi
 
+**Funzionamento:**
+Il modulo scarica sequenze proteiche da SwissProt (o genera sequenze sintetiche come fallback) e poi estrae casualmente frammenti di 9 amminoacidi da queste sequenze, garantendo che contengano solo amminoacidi standard.
+
 ### PeptideAnalyzer
 
-La classe `PeptideAnalyzer` gestisce l'analisi di binding MHC-I tramite il servizio IEDB.
+Il modulo `PeptideAnalyzer` gestisce l'analisi di binding MHC-I tramite il servizio IEDB.
 
-**Metodi principali:**
+**Funzioni principali:**
 - `send_iedb_request(sequence_text, allele)`: Invia una richiesta al servizio IEDB
 - `parse_iedb_response(response_text)`: Analizza la risposta del servizio IEDB
 - `analyze_peptides(peptides, allele_list, batch_size, output_csv)`: Analizza una lista di peptidi
 - `process_peptides_from_csv(input_csv, output_csv, allele_list, batch_size)`: Analizza peptidi da un file CSV
 
+**Funzionamento:**
+Il modulo invia richieste al servizio web IEDB per predire il binding dei peptidi agli alleli MHC-I specificati. Processa i risultati e li restituisce in un formato strutturato, includendo lo score di binding e il percentile rank per ciascun peptide.
+
 ### SequenceVariants
 
-La classe `SequenceVariants` si occupa della generazione di varianti di sequenze peptidiche.
+Il modulo `SequenceVariants` si occupa della generazione di varianti di sequenze peptidiche.
 
-**Metodi principali:**
+**Funzioni principali:**
 - `generate_sequence_variants(sequenza)`: Genera tutte le possibili varianti di una sequenza
 - `save_variants_to_csv(peptides, filename)`: Salva le varianti generate in un file CSV
 - `generate_all_variants(sequences, output_dir, combined_file)`: Genera tutte le varianti per un insieme di sequenze
 
+**Funzionamento:**
+Il modulo prende in input una sequenza rappresentata come lista di liste, dove ogni lista interna contiene le possibili varianti per quella posizione, e genera tutte le possibili combinazioni di amminoacidi.
+
 ### Visualization
 
-La classe `Visualization` fornisce funzioni per la visualizzazione dei risultati.
+Il modulo `Visualization` fornisce funzioni per la visualizzazione dei risultati.
 
-**Metodi principali:**
+**Funzioni principali:**
 - `plot_score_distribution(results, output_file)`: Grafico della distribuzione degli score
 - `plot_category_distribution(results, output_file)`: Grafico della distribuzione delle categorie
 - `plot_immunogenicity_correlation(results, output_file)`: Grafico della correlazione tra immunogenicità e binding
 - `plot_percentile_distribution(results, output_file)`: Grafico della distribuzione dei percentile rank
 - `plot_allele_comparison(results, output_file)`: Grafico di confronto tra alleli
 
+**Funzionamento:**
+Il modulo utilizza matplotlib e seaborn per creare visualizzazioni grafiche dei risultati dell'analisi, facilitando l'interpretazione dei dati e l'identificazione di pattern.
+
+### CombinedResult
+
+La classe `CombinedResult` gestisce i risultati combinati di binding MHC-I e immunogenicità.
+
+**Attributi principali:**
+- `peptide`: Sequenza peptidica
+- `allele`: Allele HLA
+- `binding_score`: Score di binding MHC-I
+- `percentile_rank`: Percentile rank del binding MHC-I
+- `immunogenicity_score`: Score di immunogenicità
+- `composite_score`: Punteggio composito calcolato
+- `category`: Categoria assegnata al peptide
+
+**Metodi principali:**
+- `_calculate_composite_score()`: Calcola il punteggio composito
+- `_determine_category()`: Determina la categoria del peptide
+- `to_dict()`: Converte l'oggetto in un dizionario
+- `from_dict(data)`: Crea un oggetto CombinedResult da un dizionario
+- `from_results_list(results_list)`: Crea una lista di oggetti CombinedResult da una lista di dizionari
+- `add_immunogenicity_scores(results, output_csv, filtered_csv, ranked_csv)`: Aggiunge il punteggio di immunogenicità ai risultati
+- `filter_by_percentile(results, threshold, operator)`: Filtra i risultati in base al percentile rank
+- `filter_by_immunogenicity(results, threshold, operator)`: Filtra i risultati in base all'immunogenicità
+- `filter_combined(results, percentile_threshold, percentile_operator, immunogenicity_threshold, immunogenicity_operator)`: Filtra i risultati con criteri combinati
+
+**Funzionamento:**
+La classe integra i risultati dell'analisi di binding MHC-I con i punteggi di immunogenicità, calcolando un punteggio composito e assegnando una categoria a ciascun peptide in base a criteri predefiniti.
+
 ## Calcolo del punteggio composito
 
 Il punteggio composito combina il binding MHC-I e l'immunogenicità per fornire una valutazione complessiva del potenziale di un peptide come epitopo.
 
-La formula utilizzata è:
+### Formula del punteggio composito
+
 ```
 Punteggio composito = (1 - percentile_rank/100) * (1 + immunogenicity_score)
 ```
 
-Dove:
-- `percentile_rank` è il percentile rank del binding MHC-I (più basso è migliore)
-- `immunogenicity_score` è il punteggio di immunogenicità (più alto è migliore)
+Questa formula è stata progettata per:
+1. Valorizzare i peptidi con alto binding (percentile_rank basso)
+2. Amplificare il punteggio in base all'immunogenicità
+3. Produrre un valore facilmente interpretabile
 
-Il punteggio composito varia da 0 a 2, dove:
-- 0 indica un peptide con pessimo binding (percentile_rank = 100) e immunogenicità neutra (score = 0)
-- 2 indica un peptide con binding perfetto (percentile_rank = 0) e massima immunogenicità positiva (score = 1)
+### Componenti della formula:
+- **Componente di binding**: `(1 - percentile_rank/100)`
+  - Varia da 0 a 1
+  - Vale 1 quando percentile_rank = 0 (binding ottimale)
+  - Vale 0 quando percentile_rank = 100 (binding pessimo)
 
-In base al punteggio composito e ad altri parametri, i peptidi vengono categorizzati come:
-- **Eccellente**: Peptidi con percentile rank < 0.1, immunogenicità > 0.3 e binding score > 0.95
-- **Buono**: Peptidi con percentile rank < 0.5, immunogenicità > 0 e binding score > 0.9
-- **Da considerare**: Peptidi con percentile rank < 1.0, immunogenicità > 0 e binding score > 0.8
-- **Da scartare**: Tutti gli altri peptidi
+- **Componente di immunogenicità**: `(1 + immunogenicity_score)`
+  - Varia da 0 a 2 (poiché immunogenicity_score varia da -1 a +1)
+  - Vale 2 quando immunogenicity_score = 1 (massima immunogenicità positiva)
+  - Vale 0 quando immunogenicity_score = -1 (massima immunogenicità negativa)
+  - Vale 1 quando immunogenicity_score = 0 (immunogenicità neutra)
 
-La libreria include la classe `CombinedResult` che gestisce automaticamente il calcolo del punteggio composito e la categorizzazione dei peptidi, fornendo un'interfaccia unificata per l'analisi combinata di binding MHC-I e immunogenicità.
+### Intervallo di valori:
+- Il punteggio composito varia da 0 a 2:
+  - 0: peptide con pessimo binding (percentile_rank = 100) e immunogenicità neutra (score = 0)
+  - 0: peptide con binding qualsiasi ma immunogenicità estremamente negativa (score = -1)
+  - 2: peptide con binding perfetto (percentile_rank = 0) e massima immunogenicità positiva (score = 1)
+
+### Sistema di categorizzazione
+
+In base al punteggio composito e ad altri parametri specifici, i peptidi vengono categorizzati come:
+
+| Categoria | Criteri |
+|-----------|---------|
+| **Eccellente** | percentile_rank < 0.1 E immunogenicity_score > 0.3 E binding_score > 0.95 |
+| **Buono** | percentile_rank < 0.5 E immunogenicity_score > 0 E binding_score > 0.9 |
+| **Da considerare** | percentile_rank < 1.0 E immunogenicity_score > 0 E binding_score > 0.8 |
+| **Da scartare** | Tutti gli altri peptidi |
+
+### Implementazione
+
+La classe `CombinedResult` gestisce automaticamente il calcolo del punteggio composito e la categorizzazione dei peptidi, fornendo un'interfaccia unificata per l'analisi combinata di binding MHC-I e immunogenicità.
+
+Il metodo `_calculate_composite_score()` implementa la formula sopra descritta, mentre il metodo `_determine_category()` assegna la categoria appropriata in base ai criteri definiti.
+
+### Esempio di calcolo:
+
+Per un peptide con:
+- percentile_rank = 0.05 (eccellente binding)
+- immunogenicity_score = 0.4 (buona immunogenicità)
+
+Il punteggio composito sarà:
+```
+(1 - 0.05/100) * (1 + 0.4) = 0.9995 * 1.4 = 1.3993
+```
+
+Questo punteggio, insieme agli altri parametri, classificherebbe il peptide nella categoria "Eccellente".
 
 ## Installazione
 
