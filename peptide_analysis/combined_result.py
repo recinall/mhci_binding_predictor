@@ -38,7 +38,7 @@ class CombinedResult:
         Calcola il punteggio composito che combina binding MHC-I e immunogenicità.
         
         La formula utilizzata è:
-        Punteggio composito = (1 - percentile_rank/100) * (1 + immunogenicity_score)
+        Punteggio composito = (immunogenicity_score * 0.5) + ((1 - percentile_rank/100) * 0.3) + (binding_score * 0.2)
         
         Returns:
         float: Punteggio composito
@@ -47,11 +47,12 @@ class CombinedResult:
             return None
         
         # Formula del punteggio composito
-        binding_component = 1 - (self.percentile_rank / 100)
-        immunogenicity_component = 1 + self.immunogenicity_score
+        immunogenicity_component = self.immunogenicity_score * 0.5
+        binding_rank_component = (1 - (self.percentile_rank / 100)) * 0.3
+        binding_score_component = self.binding_score * 0.2
         
-        # Il punteggio varia da 0 a 2
-        composite_score = binding_component * immunogenicity_component
+        # Il punteggio è una media ponderata dei tre componenti
+        composite_score = immunogenicity_component + binding_rank_component + binding_score_component
         
         return round(composite_score, 4)
     

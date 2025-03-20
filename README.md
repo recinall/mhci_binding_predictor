@@ -120,31 +120,35 @@ Il punteggio composito combina il binding MHC-I e l'immunogenicità per fornire 
 ### Formula del punteggio composito
 
 ```
-Punteggio composito = (1 - percentile_rank/100) * (1 + immunogenicity_score)
+Punteggio composito = (immunogenicity_score * 0.5) + ((1 - percentile_rank/100) * 0.3) + (binding_score * 0.2)
 ```
 
 Questa formula è stata progettata per:
-1. Valorizzare i peptidi con alto binding (percentile_rank basso)
-2. Amplificare il punteggio in base all'immunogenicità
-3. Produrre un valore facilmente interpretabile
+1. Dare maggior peso all'immunogenicità (50%)
+2. Valorizzare i peptidi con alto binding (percentile_rank basso) (30%)
+3. Considerare anche il punteggio di binding assoluto (20%)
+4. Produrre un valore facilmente interpretabile
 
 ### Componenti della formula:
-- **Componente di binding**: `(1 - percentile_rank/100)`
-  - Varia da 0 a 1
-  - Vale 1 quando percentile_rank = 0 (binding ottimale)
+- **Componente di immunogenicità**: `(immunogenicity_score * 0.5)`
+  - Contribuisce per il 50% al punteggio finale
+  - Varia da -0.5 a 0.5 (poiché immunogenicity_score varia da -1 a +1)
+
+- **Componente di percentile rank**: `((1 - percentile_rank/100) * 0.3)`
+  - Contribuisce per il 30% al punteggio finale
+  - Varia da 0 a 0.3
+  - Vale 0.3 quando percentile_rank = 0 (binding ottimale)
   - Vale 0 quando percentile_rank = 100 (binding pessimo)
 
-- **Componente di immunogenicità**: `(1 + immunogenicity_score)`
-  - Varia da 0 a 2 (poiché immunogenicity_score varia da -1 a +1)
-  - Vale 2 quando immunogenicity_score = 1 (massima immunogenicità positiva)
-  - Vale 0 quando immunogenicity_score = -1 (massima immunogenicità negativa)
-  - Vale 1 quando immunogenicity_score = 0 (immunogenicità neutra)
+- **Componente di binding score**: `(binding_score * 0.2)`
+  - Contribuisce per il 20% al punteggio finale
+  - Varia da 0 a 0.2 (poiché binding_score varia da 0 a 1)
 
 ### Intervallo di valori:
-- Il punteggio composito varia da 0 a 2:
-  - 0: peptide con pessimo binding (percentile_rank = 100) e immunogenicità neutra (score = 0)
-  - 0: peptide con binding qualsiasi ma immunogenicità estremamente negativa (score = -1)
-  - 2: peptide con binding perfetto (percentile_rank = 0) e massima immunogenicità positiva (score = 1)
+- Il punteggio composito varia da -0.5 a 1:
+  - -0.5: peptide con immunogenicità estremamente negativa (score = -1), indipendentemente dal binding
+  - 0: peptide con immunogenicità neutra (score = 0), pessimo binding (percentile_rank = 100) e binding score = 0
+  - 1: peptide con massima immunogenicità positiva (score = 1), binding perfetto (percentile_rank = 0) e binding score = 1
 
 ### Sistema di categorizzazione
 
@@ -168,10 +172,11 @@ Il metodo `_calculate_composite_score()` implementa la formula sopra descritta, 
 Per un peptide con:
 - percentile_rank = 0.05 (eccellente binding)
 - immunogenicity_score = 0.4 (buona immunogenicità)
+- binding_score = 0.98 (alto binding)
 
 Il punteggio composito sarà:
 ```
-(1 - 0.05/100) * (1 + 0.4) = 0.9995 * 1.4 = 1.3993
+(0.4 * 0.5) + ((1 - 0.05/100) * 0.3) + (0.98 * 0.2) = 0.2 + 0.2999 + 0.196 = 0.6959
 ```
 
 Questo punteggio, insieme agli altri parametri, classificherebbe il peptide nella categoria "Eccellente".
