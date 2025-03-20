@@ -13,6 +13,82 @@ Una libreria Python completa per la generazione, analisi e visualizzazione di pe
 - **Visualizzazione dei risultati**: Grafici per l'analisi dei risultati (distribuzione degli score, percentile rank, ecc.)
 - **Filtraggio dei risultati**: Possibilità di filtrare i risultati in base al percentile rank
 
+## Specifiche delle classi
+
+### Immunogenicity
+
+La classe `Immunogenicity` implementa l'algoritmo di predizione dell'immunogenicità descritto in Calis et al. (2013).
+
+**Metodi principali:**
+- `predict_immunogenicity(peptides, custom_mask=None, allele=None)`: Predice l'immunogenicità di una lista di peptidi
+- `validate_peptides(peptides, custom_mask=None, allele=None)`: Valida i peptidi prima della predizione
+- `save_results_to_csv(results, filename)`: Salva i risultati in un file CSV
+- `get_available_alleles()`: Restituisce la lista degli alleli disponibili
+- `print_available_alleles()`: Stampa la lista degli alleli disponibili
+
+### PeptideGenerator
+
+La classe `PeptideGenerator` si occupa della generazione di peptidi 9-mer casuali da sequenze proteiche.
+
+**Metodi principali:**
+- `download_swissprot_data()`: Scarica i dati da SwissProt
+- `generate_9mers(protein_sequences, num_peptides)`: Genera peptidi 9-mer casuali
+- `save_to_csv(peptides, filename)`: Salva i peptidi generati in un file CSV
+- `generate_peptides_pipeline(num_peptides, output_file)`: Pipeline completa per la generazione di peptidi
+
+### PeptideAnalyzer
+
+La classe `PeptideAnalyzer` gestisce l'analisi di binding MHC-I tramite il servizio IEDB.
+
+**Metodi principali:**
+- `send_iedb_request(sequence_text, allele)`: Invia una richiesta al servizio IEDB
+- `parse_iedb_response(response_text)`: Analizza la risposta del servizio IEDB
+- `analyze_peptides(peptides, allele_list, batch_size, output_csv)`: Analizza una lista di peptidi
+- `process_peptides_from_csv(input_csv, output_csv, allele_list, batch_size)`: Analizza peptidi da un file CSV
+
+### SequenceVariants
+
+La classe `SequenceVariants` si occupa della generazione di varianti di sequenze peptidiche.
+
+**Metodi principali:**
+- `generate_sequence_variants(sequenza)`: Genera tutte le possibili varianti di una sequenza
+- `save_variants_to_csv(peptides, filename)`: Salva le varianti generate in un file CSV
+- `generate_all_variants(sequences, output_dir, combined_file)`: Genera tutte le varianti per un insieme di sequenze
+
+### Visualization
+
+La classe `Visualization` fornisce funzioni per la visualizzazione dei risultati.
+
+**Metodi principali:**
+- `plot_score_distribution(results, output_file)`: Grafico della distribuzione degli score
+- `plot_category_distribution(results, output_file)`: Grafico della distribuzione delle categorie
+- `plot_immunogenicity_correlation(results, output_file)`: Grafico della correlazione tra immunogenicità e binding
+- `plot_percentile_distribution(results, output_file)`: Grafico della distribuzione dei percentile rank
+- `plot_allele_comparison(results, output_file)`: Grafico di confronto tra alleli
+
+## Calcolo del punteggio composito
+
+Il punteggio composito combina il binding MHC-I e l'immunogenicità per fornire una valutazione complessiva del potenziale di un peptide come epitopo.
+
+La formula utilizzata è:
+```
+Punteggio composito = (1 - percentile_rank/100) * (1 + immunogenicity_score)
+```
+
+Dove:
+- `percentile_rank` è il percentile rank del binding MHC-I (più basso è migliore)
+- `immunogenicity_score` è il punteggio di immunogenicità (più alto è migliore)
+
+Il punteggio composito varia da 0 a 2, dove:
+- 0 indica un peptide con pessimo binding (percentile_rank = 100) e immunogenicità neutra (score = 0)
+- 2 indica un peptide con binding perfetto (percentile_rank = 0) e massima immunogenicità positiva (score = 1)
+
+In base al punteggio composito e ad altri parametri, i peptidi vengono categorizzati come:
+- **Eccellente**: Peptidi con percentile rank < 0.5 e immunogenicità > 0.1
+- **Buono**: Peptidi con percentile rank < 2.0 e immunogenicità > 0
+- **Da considerare**: Peptidi con percentile rank < 5.0 o immunogenicità > 0
+- **Da scartare**: Tutti gli altri peptidi
+
 ## Installazione
 
 ```bash
@@ -198,6 +274,7 @@ python peptide_analysis/examples/immunogenicity_example.py --list-alleles
 - **visualization.py**: Visualizzazione dei risultati
 - **utils.py**: Funzioni di utilità
 - **main.py**: Funzioni principali che combinano le varie funzionalità
+- **immunogenicity.py**: Predizione dell'immunogenicità dei peptidi
 
 ## Requisiti
 
