@@ -10,6 +10,7 @@ from .visualization import plot_score_distribution, plot_percentile_distribution
 from .utils import load_peptides_from_csv, load_results_from_csv, ensure_directory, filter_results_by_percentile
 from .sequence_variants import generate_sequence_variants, save_variants_to_csv, generate_all_variants
 from .immunogenicity import predict_peptide_immunogenicity, get_available_immunogenicity_alleles
+from .combined_result import CombinedResult
 
 def generate_and_analyze_peptides(num_peptides=1000, allele_list="HLA-A*01:01,HLA-A*02:01", 
                                  batch_size=10, output_dir="output"):
@@ -153,7 +154,7 @@ def run_complete_analysis(input_csv=None, num_peptides=1000, allele_list="HLA-A*
     }
     
     if include_immunogenicity:
-        report["immunogenicity_results"] = len(immuno_results)
+        report["immunogenicity_results"] = len(results_with_immuno)
     
     print("\nAnalisi completata:")
     print(f"- Peptidi analizzati: {report['total_peptides']}")
