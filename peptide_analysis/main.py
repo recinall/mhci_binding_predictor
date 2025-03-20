@@ -78,85 +78,26 @@ def run_complete_analysis(input_csv=None, num_peptides=1000, allele_list="HLA-A*
     # Aggiungiamo l'analisi di immunogenicità se richiesto
     if include_immunogenicity:
         print("\nAggiunta dell'analisi di immunogenicità...")
-        # Estrai i peptidi unici dai risultati
-        unique_peptides = list(set([r['peptide'] for r in results]))
-        
+            
         # Directory per i risultati di immunogenicità
         immuno_dir = os.path.join(output_dir, "immunogenicity")
         ensure_directory(immuno_dir)
-        
-        # Analizziamo l'immunogenicità dei peptidi
-        immuno_results = predict_peptide_immunogenicity(
-            unique_peptides, 
-            output_csv=os.path.join(immuno_dir, "immunogenicity_results.csv")
+            
+        # Utilizziamo la nuova funzione per aggiungere l'immunogenicità
+        results_with_immuno, filtered_immuno, ranked_immuno = add_immunogenicity_to_results(
+            results, immuno_dir
         )
-        
-        # Creiamo un dizionario per mappare peptidi a score di immunogenicità
-        immuno_scores = {r['peptide']: r['score'] for r in immuno_results}
-        
-        # Aggiungiamo lo score di immunogenicità ai risultati originali
-        for r in results:
-            peptide = r['peptide']
-            allele = r['allele'].replace('*', '').replace(':', '')
             
-            # Calcoliamo l'immunogenicità specifica per l'allele
-            allele_specific_results = predict_peptide_immunogenicity([peptide], allele=allele)
-            if allele_specific_results:
-                r['immunogenicity_score'] = allele_specific_results[0]['score']
-            else:
-                # Fallback al valore generico se non disponibile per l'allele specifico
-                r['immunogenicity_score'] = immuno_scores.get(peptide, None)
+        # Aggiorniamo i risultati
+        results = results_with_immuno
             
-            # Aggiungiamo la categoria e il punteggio composito
-            if r['immunogenicity_score'] is not None and r['score'] is not None and r['percentile_rank'] is not None:
-                # Calcolo del punteggio composito
-                r['punteggio_composito'] = (r['immunogenicity_score'] * 0.5) + ((1 - r['percentile_rank']/100) * 0.3) + (r['score'] * 0.2)
-                r['punteggio_composito'] = round(r['punteggio_composito'], 4)
-                
-                # Determinazione della categoria
-                if r['immunogenicity_score'] > 0.3 and r['percentile_rank'] < 0.1 and r['score'] > 0.95:
-                    r['categoria'] = 'Eccellente'
-                elif r['immunogenicity_score'] > 0 and r['percentile_rank'] < 0.5 and r['score'] > 0.9:
-                    r['categoria'] = 'Buono'
-                elif r['immunogenicity_score'] > 0 and r['percentile_rank'] < 1.0 and r['score'] > 0.8:
-                    r['categoria'] = 'Da considerare'
-                else:
-                    r['categoria'] = 'Da scartare'
-            else:
-                r['punteggio_composito'] = None
-                r['categoria'] = 'Non determinato'
-        
-        # Aggiungiamo lo score di immunogenicità, categoria e punteggio composito ai risultati filtrati
-        for r in filtered_results:
-            peptide = r['peptide']
-            allele = r['allele'].replace('*', '').replace(':', '')
-            
-            # Calcoliamo l'immunogenicità specifica per l'allele
-            allele_specific_results = predict_peptide_immunogenicity([peptide], allele=allele)
-            if allele_specific_results:
-                r['immunogenicity_score'] = allele_specific_results[0]['score']
-            else:
-                # Fallback al valore generico se non disponibile per l'allele specifico
-                r['immunogenicity_score'] = immuno_scores.get(peptide, None)
-            
-            # Aggiungiamo la categoria e il punteggio composito
-            if r['immunogenicity_score'] is not None and r['score'] is not None and r['percentile_rank'] is not None:
-                # Calcolo del punteggio composito
-                r['punteggio_composito'] = (r['immunogenicity_score'] * 0.5) + ((1 - r['percentile_rank']/100) * 0.3) + (r['score'] * 0.2)
-                r['punteggio_composito'] = round(r['punteggio_composito'], 4)
-                
-                # Determinazione della categoria
-                if r['immunogenicity_score'] > 0.3 and r['percentile_rank'] < 0.1 and r['score'] > 0.95:
-                    r['categoria'] = 'Eccellente'
-                elif r['immunogenicity_score'] > 0 and r['percentile_rank'] < 0.5 and r['score'] > 0.9:
-                    r['categoria'] = 'Buono'
-                elif r['immunogenicity_score'] > 0 and r['percentile_rank'] < 1.0 and r['score'] > 0.8:
-                    r['categoria'] = 'Da considerare'
-                else:
-                    r['categoria'] = 'Da scartare'
-            else:
-                r['punteggio_composito'] = None
-                r['categoria'] = 'Non determinato'
+        # Aggiorniamo i risultati filtrati se necessario
+        if percentile_threshold <= 0.5:
+            # Se la soglia è già abbastanza bassa, possiamo usare i risultati filtrati per immunogenicità
+            filtered_results = filtered_immuno
+        else:
+            # Altrimenti filtriamo i risultati con immunogenicità in base alla soglia specificata
+            filtered_results = filter_results_by_percentile(results, percentile_threshold, percentile_operator)
         
         # Salviamo i risultati completi in un nuovo file CSV
         complete_results_csv = os.path.join(output_dir, "complete_results.csv")
@@ -279,6 +220,68 @@ def analyze_peptide_immunogenicity(peptides=None, input_csv=None, custom_mask=No
     print(f"- Risultati salvati in: {output_csv}")
     
     return report
+
+def add_immunogenicity_to_results(results, output_dir="immunogenicity_output"):
+    """
+    Aggiunge il punteggio di immunogenicità ai risultati dell'analisi.
+    
+    Parametri:
+    results (list): Lista di dizionari con i risultati dell'analisi
+    output_dir (str): Directory di output
+    
+    Returns:
+    tuple: (risultati con immunogenicità, risultati filtrati, risultati ordinati)
+    """
+    # Assicuriamo che la directory di output esista
+    ensure_directory(output_dir)
+    
+    # Nomi dei file di output
+    output_csv = os.path.join(output_dir, "results_with_immunogenicity.csv")
+    filtered_csv = os.path.join(output_dir, "filtered_results.csv")
+    ranked_csv = os.path.join(output_dir, "ranked_results.csv")
+    
+    # Utilizziamo la funzione della classe CombinedResult
+    results_with_immuno, filtered_results, ranked_results = CombinedResult.add_immunogenicity_scores(
+        results, output_csv, filtered_csv, ranked_csv
+    )
+    
+    # Creiamo i grafici
+    plots_dir = os.path.join(output_dir, "plots")
+    ensure_directory(plots_dir)
+    
+    # Grafico di correlazione tra binding e immunogenicità
+    plot_immunogenicity_correlation(
+        results_with_immuno, os.path.join(plots_dir, "immunogenicity_correlation.png")
+    )
+    
+    # Grafico della distribuzione delle categorie
+    plot_category_distribution(
+        results_with_immuno, os.path.join(plots_dir, "category_distribution.png")
+    )
+    
+    # Creiamo un report con i risultati
+    report = {
+        "total_results": len(results),
+        "results_with_immunogenicity": len(results_with_immuno),
+        "filtered_results": len(filtered_results),
+        "ranked_results": len(ranked_results),
+        "output_directory": os.path.abspath(output_dir),
+        "output_csv": output_csv,
+        "filtered_csv": filtered_csv,
+        "ranked_csv": ranked_csv
+    }
+    
+    print("\nAnalisi dell'immunogenicità completata:")
+    print(f"- Risultati totali: {report['total_results']}")
+    print(f"- Risultati con immunogenicità: {report['results_with_immunogenicity']}")
+    print(f"- Risultati filtrati (percentile < 0.5 e immunogenicità > 0): {report['filtered_results']}")
+    print(f"- Risultati ordinati per punteggio composito: {report['ranked_results']}")
+    print(f"- File CSV con immunogenicità: {output_csv}")
+    print(f"- File CSV filtrato: {filtered_csv}")
+    print(f"- File CSV ordinato: {ranked_csv}")
+    print(f"- Grafici salvati in: {plots_dir}")
+    
+    return results_with_immuno, filtered_results, ranked_results
 
 def analyze_sequence_variants(sequences, allele_list="HLA-A*01:01,HLA-A*02:01", 
                              batch_size=10, output_dir="variants_analysis", 

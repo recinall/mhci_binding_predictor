@@ -84,10 +84,12 @@ Il punteggio composito varia da 0 a 2, dove:
 - 2 indica un peptide con binding perfetto (percentile_rank = 0) e massima immunogenicità positiva (score = 1)
 
 In base al punteggio composito e ad altri parametri, i peptidi vengono categorizzati come:
-- **Eccellente**: Peptidi con percentile rank < 0.5 e immunogenicità > 0.1
-- **Buono**: Peptidi con percentile rank < 2.0 e immunogenicità > 0
-- **Da considerare**: Peptidi con percentile rank < 5.0 o immunogenicità > 0
+- **Eccellente**: Peptidi con percentile rank < 0.1, immunogenicità > 0.3 e binding score > 0.95
+- **Buono**: Peptidi con percentile rank < 0.5, immunogenicità > 0 e binding score > 0.9
+- **Da considerare**: Peptidi con percentile rank < 1.0, immunogenicità > 0 e binding score > 0.8
 - **Da scartare**: Tutti gli altri peptidi
+
+La libreria include la classe `CombinedResult` che gestisce automaticamente il calcolo del punteggio composito e la categorizzazione dei peptidi, fornendo un'interfaccia unificata per l'analisi combinata di binding MHC-I e immunogenicità.
 
 ## Installazione
 
@@ -219,6 +221,37 @@ report = run_complete_analysis(
 # - Punteggio di immunogenicità specifico per allele
 # - Categoria (Eccellente, Buono, Da considerare, Da scartare)
 # - Punteggio composito che combina binding e immunogenicità
+
+# Aggiungere l'immunogenicità a risultati esistenti
+from peptide_analysis import load_results_from_csv, add_immunogenicity_to_results
+
+# Carica i risultati da un file CSV
+results = load_results_from_csv("results.csv")
+
+# Aggiungi l'immunogenicità ai risultati
+results_with_immuno, filtered_results, ranked_results = add_immunogenicity_to_results(
+    results, 
+    output_dir="immunogenicity_output"
+)
+
+# Utilizzo della classe CombinedResult per gestire i risultati combinati
+from peptide_analysis import CombinedResult
+
+# Crea un oggetto CombinedResult
+combined_result = CombinedResult(
+    peptide="GILGFVFTL",
+    allele="HLA-A*02:01",
+    binding_score=0.98,
+    percentile_rank=0.05,
+    immunogenicity_score=0.45
+)
+
+# Ottieni il punteggio composito e la categoria
+print(f"Punteggio composito: {combined_result.composite_score}")
+print(f"Categoria: {combined_result.category}")
+
+# Converti in dizionario
+result_dict = combined_result.to_dict()
 ```
 
 ### Visualizzazione dei risultati
@@ -275,6 +308,7 @@ python peptide_analysis/examples/immunogenicity_example.py --list-alleles
 - **utils.py**: Funzioni di utilità
 - **main.py**: Funzioni principali che combinano le varie funzionalità
 - **immunogenicity.py**: Predizione dell'immunogenicità dei peptidi
+- **combined_result.py**: Gestione dei risultati combinati di binding MHC-I e immunogenicità
 
 ## Requisiti
 

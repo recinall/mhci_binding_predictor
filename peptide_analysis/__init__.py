@@ -16,11 +16,13 @@ from .immunogenicity import (
     get_available_immunogenicity_alleles,
     print_available_immunogenicity_alleles
 )
+from .combined_result import CombinedResult
 
 # Funzione principale che combina tutte le funzionalità
 from .main import (
     generate_and_analyze_peptides, 
     run_complete_analysis, 
     analyze_sequence_variants,
-    analyze_peptide_immunogenicity
+    analyze_peptide_immunogenicity,
+    add_immunogenicity_to_results
 )
