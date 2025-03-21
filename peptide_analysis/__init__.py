@@ -26,3 +26,10 @@ from .main import (
     analyze_peptide_immunogenicity,
     add_immunogenicity_to_results
 )
+
+# Esporta le funzioni di binding_prediction
+try:
+    from .binding_prediction import predict_binding, get_available_methods, get_available_alleles
+except ImportError:
+    # Se il modulo non è disponibile, non esportiamo le funzioni
+    pass
