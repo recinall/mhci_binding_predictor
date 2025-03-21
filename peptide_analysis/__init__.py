@@ -33,3 +33,6 @@ try:
 except ImportError:
     # Se il modulo non è disponibile, non esportiamo le funzioni
     pass
+
+# Esporta la funzione principale della CLI
+from .cli import main as cli_main

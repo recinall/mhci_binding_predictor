@@ -12,7 +12,13 @@ setup(
         "tqdm",
         "numpy",
         "openpyxl",  # Per il supporto Excel
+        "pexpect",   # Per l'interazione con predict_binding.py
     ],
+    entry_points={
+        'console_scripts': [
+            'peptide-analysis=peptide_analysis.cli:main',
+        ],
+    },
     author="Peptide Analysis Team",
     author_email="info@peptideanalysis.org",
     description="Una libreria per la generazione, analisi e visualizzazione di peptidi 9-mer",
