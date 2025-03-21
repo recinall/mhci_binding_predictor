@@ -13,6 +13,7 @@ Una libreria Python completa per la generazione, analisi e visualizzazione di pe
 - **Generazione di varianti di sequenze**: Creazione di tutte le possibili varianti di sequenze peptidiche
 - **Visualizzazione dei risultati**: Grafici per l'analisi dei risultati (distribuzione degli score, percentile rank, ecc.)
 - **Filtraggio avanzato dei risultati**: Possibilità di filtrare i risultati in base a percentile rank, immunogenicità e IC50
+- **Interfaccia a riga di comando (CLI)**: Accesso a tutte le funzionalità principali tramite comandi da terminale
 
 ## Specifiche delle classi
 
@@ -365,34 +366,62 @@ plot_percentile_distribution(results, "percentile_distribution.png")
 plot_allele_comparison(results, "allele_comparison.png")
 ```
 
-## Utilizzo da linea di comando
+## Utilizzo da linea di comando (CLI)
 
-La libreria include anche script di esempio per l'utilizzo da linea di comando:
+La libreria include un'interfaccia a riga di comando completa che permette di accedere a tutte le funzionalità principali:
 
 ```bash
-# Analisi completa di peptidi
-python example.py --mode analyze --num-peptides 1000 --output-dir output
+# Mostra l'help generale
+peptide-analysis --help
 
-# Analisi di peptidi da un file CSV esistente
-python example.py --mode analyze --input-csv peptides.csv --output-dir output
+# Generare varianti di sequenze da un file
+peptide-analysis variants --input sequences.txt --output variants.csv
 
-# Visualizzazione dei risultati di un'analisi precedente
-python example.py --mode visualize --results-csv output/results.csv --output-dir output
+# Analizzare peptidi con IEDB
+peptide-analysis analyze --input peptides.csv --alleles HLA-A*02:01 --output results.csv
 
-# Generazione e analisi di varianti di sequenze
-python peptide_analysis/examples/sequence_variants_example.py --output-dir variants_output
+# Predire l'immunogenicità
+peptide-analysis immunogenicity --input peptides.csv --allele HLA-A0201 --output immuno_results.csv
+peptide-analysis immunogenicity --list-alleles  # Mostra gli alleli disponibili
 
-# Filtraggio dei risultati
-python peptide_analysis/examples/filter_results.py --results-csv output/results.csv --percentile-threshold 1.0 --percentile-operator "<" --output-dir filtered_results
+# Predire il binding locale con predict_binding.py
+peptide-analysis binding --input peptides.csv --allele HLA-A*02:01 --method netmhcpan_el --output binding_results.csv
+peptide-analysis binding --list-methods  # Mostra i metodi disponibili
+peptide-analysis binding --list-alleles --method netmhcpan_el  # Mostra gli alleli disponibili per un metodo
 
-# Filtraggio combinato (percentile rank e immunogenicità)
-python peptide_analysis/examples/filter_combined_results.py --results-csv output/complete_results.csv --percentile-threshold 0.5 --percentile-operator "<" --immunogenicity-threshold 0.0 --immunogenicity-operator ">" --output-dir filtered_combined
+# Filtrare risultati
+peptide-analysis filter --input results.csv --percentile 0.5 --immunogenicity 0 --ic50 500 --output filtered.csv
 
-# Predizione dell'immunogenicità
-python peptide_analysis/examples/immunogenicity_example.py --peptides GILGFVFTL NLVPMVATV CINGVCWTV --allele HLA-A0201 --output-dir immunogenicity_test
+# Generare grafici
+peptide-analysis visualize --input results.csv --output-dir plots --format png --dpi 300
 
-# Visualizzazione degli alleli disponibili per l'immunogenicità
-python peptide_analysis/examples/immunogenicity_example.py --list-alleles
+# Eseguire un'analisi completa (varianti, binding, immunogenicità, filtri, grafici)
+peptide-analysis complete --input sequences.txt --is-variants --allele HLA-A*02:01 --output-dir analysis_results
+
+# Supporto per diversi formati CSV
+peptide-analysis complete --input peptides.csv --allele HLA-A*02:01 --output-dir results --csv-separator ";" --csv-decimal ","
+```
+
+La CLI supporta diverse opzioni per ogni comando, tra cui:
+- Separatori CSV personalizzati (`,` o `;`)
+- Caratteri decimali personalizzati (`.` o `,`)
+- Formati di output per i grafici (png, pdf, svg, jpg)
+- Risoluzione personalizzabile per i grafici (DPI)
+- Soglie e operatori personalizzabili per il filtraggio
+
+Per maggiori dettagli su ciascun comando, utilizzare:
+```bash
+peptide-analysis <comando> --help
+```
+
+La libreria include anche script di esempio per l'utilizzo programmatico:
+
+```bash
+# Esempi di utilizzo
+python peptide_analysis/examples/binding_prediction_example.py
+python peptide_analysis/examples/filter_with_ic50_example.py
+python peptide_analysis/examples/sequence_variants_example.py
+python peptide_analysis/examples/immunogenicity_example.py
 ```
 
 ### Predizione del binding MHC-I locale
@@ -432,6 +461,8 @@ print(results)
 - **immunogenicity.py**: Predizione dell'immunogenicità dei peptidi
 - **combined_result.py**: Gestione dei risultati combinati di binding MHC-I e immunogenicità
 - **binding_prediction.py**: Predizione locale del binding MHC-I utilizzando predict_binding.py
+- **cli.py**: Interfaccia a riga di comando
+- **__main__.py**: Entry point per l'esecuzione come modulo
 
 ## Requisiti
 
