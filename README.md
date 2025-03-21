@@ -7,11 +7,12 @@ Una libreria Python completa per la generazione, analisi e visualizzazione di pe
 - **Generazione di peptidi**: Creazione di peptidi 9-mer casuali da sequenze proteiche
 - **Analisi di binding MHC-I**: Integrazione con il servizio IEDB per la predizione di binding
 - **Predizione dell'immunogenicità**: Implementazione dell'algoritmo di Calis et al. (2013) per la predizione dell'immunogenicità dei peptidi
+- **Predizione del binding MHC-I locale**: Integrazione con predict_binding.py per predizioni locali di binding MHC-I
 - **Categorizzazione degli epitopi**: Classificazione automatica dei peptidi in base a score, percentile rank e immunogenicità
 - **Punteggio composito**: Calcolo di un punteggio che combina binding MHC-I e immunogenicità
 - **Generazione di varianti di sequenze**: Creazione di tutte le possibili varianti di sequenze peptidiche
 - **Visualizzazione dei risultati**: Grafici per l'analisi dei risultati (distribuzione degli score, percentile rank, ecc.)
-- **Filtraggio dei risultati**: Possibilità di filtrare i risultati in base al percentile rank
+- **Filtraggio avanzato dei risultati**: Possibilità di filtrare i risultati in base a percentile rank, immunogenicità e IC50
 
 ## Specifiche delle classi
 
@@ -250,24 +251,29 @@ report = analyze_sequence_variants(
 ### Filtraggio dei risultati
 
 ```python
-from peptide_analysis import load_results_from_csv, filter_results_by_percentile, filter_results_by_immunogenicity, filter_results_combined
+from peptide_analysis import load_results_from_csv, filter_results_by_percentile, filter_results_by_immunogenicity, filter_results_by_ic50, filter_results_combined
 
 # Carica i risultati da un file CSV
 results = load_results_from_csv("results.csv")
 
-# Filtra i risultati con percentile rank < 1.0
-filtered_by_percentile = filter_results_by_percentile(results, threshold=1.0, operator="<")
+# Filtra i risultati con percentile rank < 0.5
+filtered_by_percentile = filter_results_by_percentile(results, threshold=0.5, operator="<")
 
 # Filtra i risultati con immunogenicity score > 0
 filtered_by_immunogenicity = filter_results_by_immunogenicity(results, threshold=0.0, operator=">")
 
-# Filtra i risultati con entrambi i criteri
+# Filtra i risultati con IC50 < 500 nM
+filtered_by_ic50 = filter_results_by_ic50(results, threshold=500, operator="<")
+
+# Filtra i risultati con tutti i criteri combinati
 filtered_combined = filter_results_combined(
     results,
     percentile_threshold=0.5,
     percentile_operator="<",
     immunogenicity_threshold=0.0,
-    immunogenicity_operator=">"
+    immunogenicity_operator=">",
+    ic50_threshold=500,
+    ic50_operator="<"
 )
 ```
 
@@ -389,6 +395,32 @@ python peptide_analysis/examples/immunogenicity_example.py --peptides GILGFVFTL 
 python peptide_analysis/examples/immunogenicity_example.py --list-alleles
 ```
 
+### Predizione del binding MHC-I locale
+
+```python
+from peptide_analysis import predict_binding, get_available_methods, get_available_alleles
+
+# Ottieni i metodi di predizione disponibili
+methods = get_available_methods()
+print("Metodi disponibili:", methods)
+
+# Ottieni gli alleli disponibili per un metodo specifico
+alleles = get_available_alleles(method="netmhcpan_el")
+print("Alleli disponibili:", alleles)
+
+# Predici il binding per una lista di peptidi
+peptides = ["GILGFVFTL", "NLVPMVATV", "CINGVCWTV"]
+results = predict_binding(
+    peptides=peptides,
+    allele="HLA-A*02:01",
+    method="netmhcpan_el",
+    predict_binding_path="/path/to/predict_binding.py"  # Opzionale
+)
+
+# Mostra i risultati
+print(results)
+```
+
 ## Struttura della libreria
 
 - **peptide_generator.py**: Generazione di peptidi casuali
@@ -399,6 +431,7 @@ python peptide_analysis/examples/immunogenicity_example.py --list-alleles
 - **main.py**: Funzioni principali che combinano le varie funzionalità
 - **immunogenicity.py**: Predizione dell'immunogenicità dei peptidi
 - **combined_result.py**: Gestione dei risultati combinati di binding MHC-I e immunogenicità
+- **binding_prediction.py**: Predizione locale del binding MHC-I utilizzando predict_binding.py
 
 ## Requisiti
 
@@ -410,6 +443,7 @@ python peptide_analysis/examples/immunogenicity_example.py --list-alleles
 - tqdm
 - numpy
 - openpyxl
+- pexpect (opzionale, per l'interazione con predict_binding.py)
 
 ## Licenza
 
