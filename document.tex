@@ -42,6 +42,8 @@ For each peptide-allele pair, binding affinity is predicted using the selected m
     \item Calculating immunogenicity scores based on amino acid properties, as delineated in \cite{smith2020immunogenicity}.
 \end{enumerate}
 
+The MHCI binding predictions were made on 4/9/2025 using the IEDB analysis resource NetMHCpan (ver. 4.1) tool \cite{reynisson2020netmhcpan}.
+
 \subsection{Data Filtering and Ranking}
 Following prediction, results undergo filtration based on user-defined thresholds for binding scores and IC50 values. Subsequently, rank ordering facilitates the identification of the most promising peptide candidates, thereby streamlining the selection process for further experimental validation.
 
@@ -59,6 +61,7 @@ Appropriate attribution of utilized methodologies and tools is maintained throug
 \begin{itemize}
     \item Smith, J. \textit{et al.} (2020). \textit{Immunogenicity Scoring of Peptides}. \textit{Journal of Immunology}.
     \item Andreatta, M., \& Nielsen, M. (2016). \textit{NetMHCpan-4.1: Improved predictions for any Major Histocompatibility Complex class I molecule}. \textit{Nature Methods}, 13(4), 357--360.
+    \item Reynisson, B., Alvarez, B., Paul, S., Peters, B., \& Nielsen, M. (2020). \textit{NetMHCpan-4.1 and NetMHCIIpan-4.0: improved predictions of MHC antigen presentation by concurrent motif deconvolution and integration of MS MHC eluted ligand data}. \textit{Nucleic Acids Research}, 48(W1), W449--W454. doi: 10.1093/nar/gkaa379.
 \end{itemize}
 
 \section{Conclusion}
