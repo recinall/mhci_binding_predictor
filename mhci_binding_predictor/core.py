@@ -473,6 +473,14 @@ class IEDBBindingPredictor:
         """
         if df.empty:
             return df
+
+        # Converti le colonne numeriche usando il separatore decimale corrente
+        numeric_cols = ['score', 'percentile_rank', 'ic50', 'immunogenicity']
+        for col in numeric_cols:
+            if col in df.columns and df[col].dtype == object:
+                # Sostituisci il separatore decimale con un punto e converti a float
+                df[col] = df[col].str.replace(self.decimal_separator, '.', regex=False)
+                df[col] = pd.to_numeric(df[col], errors='coerce')
         
         # Filter based on available metrics
         filters = []
@@ -497,10 +505,10 @@ class IEDBBindingPredictor:
                 combined_filter &= f
             
             binders = df[combined_filter].copy()
-            logger.info(f"Identified {len(binders)} binders that meet all thresholds")
+            logger.info(f"Identificati {len(binders)} binder che soddisfano tutte le soglie")
             return binders
         else:
-            logger.warning("Could not filter binders: no appropriate columns for filtering")
+            logger.warning("Impossibile filtrare: nessuna colonna valida per il filtraggio")
             return df
     
     def set_csv_format(self, csv_separator=None, decimal_separator=None):
