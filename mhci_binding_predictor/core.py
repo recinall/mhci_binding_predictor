@@ -393,6 +393,22 @@ class IEDBBindingPredictor:
             else:
                 return pd.DataFrame()
     
+    def get_required_columns(self, df):
+        """
+        Ensure consistent output columns.
+        
+        Args:
+            df (pd.DataFrame): DataFrame to standardize
+            
+        Returns:
+            pd.DataFrame: DataFrame with required columns
+        """
+        required_cols = ['peptide', 'allele', 'score', 'percentile_rank', 'immunogenicity', 'ic50']
+        for col in required_cols:
+            if col not in df.columns:
+                df[col] = np.nan
+        return df[required_cols]
+    
     def analyze_peptides_batch(self, peptides_list, alleles, length=9, batch_size=50):
         """
         Analyze batches of peptides across multiple alleles.
@@ -404,7 +420,7 @@ class IEDBBindingPredictor:
             batch_size (int): Batch size
             
         Returns:
-            dict: Dictionary of DataFrames with results for each allele
+            pd.DataFrame: Combined DataFrame with results for all alleles
         """
         results = {}
         
@@ -431,7 +447,15 @@ class IEDBBindingPredictor:
                 self.save_to_csv(df, combined_csv)
                 logger.info(f"All batch results saved to: {combined_csv}")
         
-        return results
+        # Combine all results into a single DataFrame
+        if results:
+            combined_results = pd.concat(results.values(), ignore_index=True)
+            combined_results = self.get_required_columns(combined_results)
+            logger.info(f"Combined {len(combined_results)} results from all alleles")
+            return combined_results
+        else:
+            logger.warning("No results to combine")
+            return pd.DataFrame(columns=['peptide', 'allele', 'score', 'percentile_rank', 'immunogenicity', 'ic50'])
     
     def filter_binders(self, df, threshold=0., rank_threshold=None, ic50_threshold=None, immunogenicity_threshold=None):
         """

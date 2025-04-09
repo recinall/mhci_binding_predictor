@@ -99,5 +99,37 @@ def set_config(ctx, csv_sep, decimal_sep):
         predictor.set_csv_format(decimal_separator=decimal_sep)
     click.echo("Configuration updated")
 
+@main.command()
+@click.option('--peptides', help='Peptide file or comma-separated list')
+@click.option('--pattern', help='Pattern for generating variants (e.g. A[CD]E[FY]GH)')
+@click.option('--alleles', required=True, help='Comma-separated list of alleles')
+@click.option('--length', default=9, help='Peptide length')
+@click.option('--output', required=True, help='Output CSV file')
+@click.pass_context
+def full_analysis(ctx, peptides, pattern, alleles, length, output):
+    """Complete analysis pipeline with variants generation, predictions and immunogenicity"""
+    predictor = ctx.obj['predictor']
+    
+    # Generate or read peptides
+    if pattern:
+        peptides_list = predictor.generate_variants(pattern)
+    elif peptides:
+        if os.path.exists(peptides):
+            with open(peptides) as f:
+                peptides_list = [line.strip() for line in f]
+        else:
+            peptides_list = [p.strip() for p in peptides.split(',')]
+    else:
+        raise click.UsageError("Must provide either --peptides or --pattern")
+    
+    alleles_list = alleles.split(',')
+    
+    # Get predictions for all alleles
+    results = predictor.analyze_peptides_batch(peptides_list, alleles_list, length)
+    
+    # Save the results
+    predictor.save_to_csv(results, output)
+    click.echo(f"✅ Full analysis completed. Results saved to {output}")
+
 if __name__ == '__main__':
     main()
