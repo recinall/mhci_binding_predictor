@@ -83,13 +83,9 @@ mhci_predict filter \
 ## Installation
 
 ```bash
-pip install mhci-binding-predictor
+pip install -e .
 ```
 
-## Documentation
-
-For complete usage documentation and API reference, see:  
-[Project Wiki](https://github.com/yourusername/mhci-binding-predictor/wiki)
 
 ## Contributing & Support
 
@@ -103,5 +99,5 @@ Submit contributions through protected `dev` branch with required CI checks.
 
 ## License
 
-BSD 3-Clause License - See [LICENSE.md](LICENSE.md) for complete terms.
+MIT License - See [LICENSE](LICENSE.md) for full text.
 
