@@ -83,19 +83,42 @@ mhci_predict filter \
 ## Installation
 
 ```bash
+git clone https://github.com/recinall/mhci_binding_predictor.git
+cd mhc_bindiing_predictor/
 pip install -e .
 ```
 
+---
 
-## Contributing & Support
+## IEDB Data Attribution & License
 
-This project adheres to:
-- PEP8 coding standards
-- Semantic versioning (v2.0.0)
-- Conventional commits specification
+This toolkit utilizes data from the Immune Epitope Database (IEDB). All IEDB data are released under the **Creative Commons Attribution 4.0 International (CC BY 4.0)** license. By using this toolkit, you agree to:
 
-Report issues via [GitHub tracker](https://github.com/yourusername/mhci-binding-predictor/issues).  
-Submit contributions through protected `dev` branch with required CI checks.
+1. **Credit IEDB**: Include attribution in publications or reports, e.g.:  
+   *Data courtesy of the Immune Epitope Database (IEDB; https://www.iedb.org) under CC BY 4.0.*
+2. **Link to License**: https://creativecommons.org/licenses/by/4.0/
+3. **Indicate Modifications**: State if data have been altered from the original source.
+
+---
+
+## API Rate Limiting & Best Practices
+
+To ensure responsible use of the public IEDB REST API, observe the following:
+
+- **Throttle Requests**: Limit to a few requests per second per IP.  
+- **Handle 429 Responses**: Implement exponential back-off on HTTP 429 (Too Many Requests) and respect any `Retry-After` headers.
+- **Parallelism**: Use moderate concurrency (e.g. thread pool or async limited to ~5 parallel calls) to avoid server overload.
+
+---
+
+## Commercial Licensing Notice
+
+The IEDB Analysis Resource tools (NetMHCpan, SMM, ANN, etc.) are provided under an academic/open‑source license for non‑commercial research. **For any commercial use or deployment**, you must obtain a separate commercial license:
+
+- Visit the IEDB download page: http://tools.iedb.org/main/download/
+- Follow instructions to request a commercial license.
+
+---
 
 ## License
 
