@@ -4,7 +4,7 @@ import tempfile
 import numpy as np
 import pandas as pd
 import requests
-import sys
+import time
 
 # Logger configuration
 logging.basicConfig(
@@ -106,6 +106,9 @@ class IEDBBindingPredictor:
         Returns:
             pd.DataFrame: DataFrame with prediction results
         """
+
+        time.sleep(1)
+
         if method is None:
             method = self.method
             
@@ -189,8 +192,21 @@ class IEDBBindingPredictor:
                 return pd.DataFrame()
                 
         except Exception as e:
-            logger.error(f"Error during prediction with IEDB API: {str(e)}")
-            return pd.DataFrame()
+            logger.error(f"Error parsing API response: {str(e)}")
+            # Tentare un approccio alternativo per il parsing
+            try:
+                lines = response.text.strip().split("\n")
+                if len(lines) >= 2:
+                    headers = lines[0].split("\t")
+                    data = []
+                    for line in lines[1:]:
+                        values = line.split("\t")
+                        if len(values) == len(headers):
+                            data.append(dict(zip(headers, values)))
+                    df = pd.DataFrame(data)
+                    return df
+            except:
+                return pd.DataFrame()
     
     def calculate_immunogenicity_score(self, peptide, custom_mask=None, allele=None):
         """
@@ -245,21 +261,23 @@ class IEDBBindingPredictor:
     def add_immunogenicity(self, df, allele=None):
         """
         Add immunogenicity score column to DataFrame.
-        
-        Args:
-            df (pd.DataFrame): DataFrame with peptides
-            allele (str, optional): MHC allele name
-            
-        Returns:
-            pd.DataFrame: DataFrame with added immunogenicity scores
         """
         if df.empty or 'peptide' not in df.columns:
             return df
         
         try:
-            # Calculate immunogenicity for each peptide
+            # Formattare l'allele per il calcolo dell'immunogenicità
+            formatted_allele = None
+            if allele:
+                formatted_allele = allele.replace("*", "").replace(":", "")
+                # Verificare se l'allele è nel dizionario
+                if formatted_allele not in self.allele_dict:
+                    logger.warning(f"Allele {formatted_allele} not found in allele dictionary. Using default mask.")
+                    formatted_allele = None
+            
+            # Calcolare l'immunogenicità per ogni peptide
             df['immunogenicity'] = df['peptide'].apply(
-                lambda x: self.calculate_immunogenicity_score(x, allele=allele)
+                lambda x: self.calculate_immunogenicity_score(x, allele=formatted_allele)
             )
             
             logger.info(f"Added immunogenicity scores for {len(df)} peptides")
@@ -267,6 +285,7 @@ class IEDBBindingPredictor:
         
         except Exception as e:
             logger.error(f"Error adding immunogenicity: {str(e)}")
+            df['immunogenicity'] = np.nan  # Aggiungi colonna vuota in caso di errore
             return df
     
     def save_to_csv(self, df, file_path):
@@ -348,11 +367,16 @@ class IEDBBindingPredictor:
             else:
                 logger.warning("netmhcpan_ba_ic50 not found in BA results")
                 ba_subset = ba_results[['peptide']]
-                if 'ic50' in ba_results.columns:
-                    ba_subset['ic50'] = ba_results['ic50']
-                elif 'netmhcpan_ic50' in ba_results.columns:
-                    ba_subset['ic50'] = ba_results['netmhcpan_ic50']
-                
+                # Cercare alternative per ic50
+                for ic50_col in ['ic50', 'netmhcpan_ic50', 'ann_ic50', 'smm_ic50']:
+                    if ic50_col in ba_results.columns:
+                        ba_subset['ic50'] = ba_results[ic50_col]
+                        logger.info(f"Using {ic50_col} as alternative for ic50")
+                        break
+                else:
+                    # Se nessun valore IC50 è trovato, creare una colonna vuota
+                    ba_subset['ic50'] = np.nan
+
             # Merge the two dataframes on peptide
             combined = pd.merge(el_subset, ba_subset, on='peptide', how='outer')
             
