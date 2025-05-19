@@ -354,23 +354,23 @@ class IEDBBindingPredictor:
                 })
             else:
                 logger.warning("netmhcpan_el_score not found in EL results")
-                el_subset = el_results[['peptide']]
+                el_subset = el_results[['peptide']].copy()
                 if 'score' in el_results.columns:
-                    el_subset['score'] = el_results['score']
+                    el_subset.loc[:, 'score'] = el_results['score']
                 if 'percentile_rank' in el_results.columns:
-                    el_subset['percentile_rank'] = el_results['percentile_rank']
+                    el_subset.loc[:, 'percentile_rank'] = el_results['percentile_rank']
                 
             # Select columns from ba_results
             if 'netmhcpan_ba_ic50' in ba_results.columns:
-                ba_subset = ba_results[['peptide', 'netmhcpan_ba_ic50']]
+                ba_subset = ba_results[['peptide', 'netmhcpan_ba_ic50']].copy()
                 ba_subset = ba_subset.rename(columns={'netmhcpan_ba_ic50': 'ic50'})
             else:
                 logger.warning("netmhcpan_ba_ic50 not found in BA results")
-                ba_subset = ba_results[['peptide']]
+                ba_subset = ba_results[['peptide']].copy()
                 # Cercare alternative per ic50
                 for ic50_col in ['ic50', 'netmhcpan_ic50', 'ann_ic50', 'smm_ic50']:
                     if ic50_col in ba_results.columns:
-                        ba_subset['ic50'] = ba_results[ic50_col]
+                        ba_subset.loc[:, 'ic50'] = ba_results[ic50_col]
                         logger.info(f"Using {ic50_col} as alternative for ic50")
                         break
                 else:
