@@ -48,9 +48,9 @@ EXAMPLES:
 @click.option('--alleles', required=True,
              help='Comma-separated list of MHC alleles (e.g. "HLA-A*02:01,HLA-B*07:02")')
 @click.option('--length', default=9, show_default=True,
-             help='Peptide length (8-15 residues)')
-@click.option('--method', default='netmhcpan_el', show_default=True,
-             help="Prediction method: netmhcpan_el (eluted ligand) or netmhcpan_ba (binding affinity)")
+             help='Peptide length (8-15 residues, comma-separated for multiple lengths)')
+@click.option('--method', default='recommended_epitope', show_default=True,
+             help="Prediction method: netmhcpan_el[-version] (eluted ligand), netmhcpan_ba[-version] (binding affinity), or recommended_epitope")
 @click.pass_context
 def predict(ctx, peptides, alleles, length, method):
     """Run MHC binding predictions
@@ -67,13 +67,19 @@ def predict(ctx, peptides, alleles, length, method):
     else:
         peptides_list = [p.strip() for p in peptides.split(',')]
     
-    # Process alleles
+    # Process alleles and lengths
     alleles_list = alleles.split(',')
+    
+    # Handle multiple lengths if provided
+    if isinstance(length, str) and ',' in length:
+        lengths_list = [int(l.strip()) for l in length.split(',')]
+    else:
+        lengths_list = [int(length)]
     
     results = predictor.analyze_peptides_batch(
         peptides_list,
         alleles_list,
-        length=length
+        lengths=lengths_list
     )
     
     click.echo(f"Results saved to {predictor.output_dir}")
@@ -190,7 +196,7 @@ EXAMPLES:
 @click.option('--alleles', required=True,
              help='Comma-separated list of MHC alleles')
 @click.option('--length', default=9, show_default=True,
-             help='Peptide length (required for predictions)')
+             help='Peptide length (comma-separated for multiple lengths)')
 @click.option('--output', required=True,
              help='Output CSV file path')
 @click.pass_context
@@ -217,8 +223,14 @@ def full_analysis(ctx, peptides, pattern, alleles, length, output):
     
     alleles_list = alleles.split(',')
     
+    # Process lengths
+    if isinstance(length, str) and ',' in length:
+        lengths_list = [int(l.strip()) for l in length.split(',')]
+    else:
+        lengths_list = [int(length)]
+    
     # Get predictions for all alleles
-    results = predictor.analyze_peptides_batch(peptides_list, alleles_list, length)
+    results = predictor.analyze_peptides_batch(peptides_list, alleles_list, lengths=lengths_list)
     
     # Save the results
     predictor.save_to_csv(results, output)

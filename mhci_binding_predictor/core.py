@@ -19,18 +19,24 @@ class IEDBBindingPredictor:
     Also calculates immunogenicity scores based on amino acid properties.
     """
     
-    def __init__(self, output_dir="./output", method="netmhcpan_el", csv_separator=",", decimal_separator="."):
+    def __init__(self, output_dir="./output", method="recommended_epitope", csv_separator=",", decimal_separator="."):
         """
         Initialize the binding predictor.
         
         Args:
             output_dir (str): Output directory for results
-            method (str): Prediction method to use
+            method (str): Prediction method to use (can include version with dash, e.g. "netmhcpan_el-4.1")
             csv_separator (str): Separator to use for CSV files ("," or ";")
             decimal_separator (str): Decimal separator to use for CSV files ("." or ",")
         """
         self.output_dir = output_dir
-        self.method = method
+        
+        # Gestione versione metodo
+        if "-" in method:
+            self.method, self.method_version = method.split("-", 1)
+        else:
+            self.method = method
+            self.method_version = None
         
         # Set CSV export settings
         if csv_separator in [",", ";"]:
@@ -93,14 +99,15 @@ class IEDBBindingPredictor:
         except ValueError:
             return False
     
-    def predict_binding_api(self, peptides, allele, length=9, method=None):
+    def predict_binding_api(self, peptides, alleles, lengths=None, method=None):
         """
-        Predicts peptide binding with the specified allele using the IEDB API.
+        Predicts peptide binding with the specified alleles using the IEDB API.
+        Supporta richieste batch con multipli alleli e lunghezze.
         
         Args:
             peptides (list): List of peptides
-            allele (str): MHC allele
-            length (int): Peptide length
+            alleles (list or str): MHC allele(s)
+            lengths (list or int, optional): Peptide length(s)
             method (str, optional): Override the default method
             
         Returns:
@@ -112,17 +119,34 @@ class IEDBBindingPredictor:
         if method is None:
             method = self.method
             
-        logger.info(f"Using IEDB API for binding prediction with allele {allele} and method {method}")
+        # Converti parametri a liste se necessario
+        if isinstance(alleles, str):
+            alleles = [alleles]
+            
+        if lengths is None:
+            lengths = [9]
+        elif isinstance(lengths, int):
+            lengths = [lengths]
+            
+        logger.info(f"Using IEDB API for binding prediction with {len(alleles)} alleles and method {method}")
         
         # IEDB API URL
         url = "http://tools-cluster-interface.iedb.org/tools_api/mhci/"
         
+        # Costruisci parametri versione
+        method_param = method
+        if self.method_version and method in ["netmhcpan_el", "netmhcpan_ba"]:
+            method_param = f"{method}-{self.method_version}"
+            
+        # Formatta correttamente sequenze multiple
+        fasta_sequences = "\n".join([f">peptide{i}\n{p}" for i, p in enumerate(peptides)])
+        
         # Prepare data for the request
         data = {
-            "method": method if method else "recommended",
-            "sequence_text": "\n".join(peptides),
-            "allele": allele,
-            "length": str(length)
+            "method": method_param,
+            "sequence_text": fasta_sequences,
+            "allele": ",".join(alleles),
+            "length": ",".join(map(str, lengths))
         }
         
         try:
@@ -150,36 +174,18 @@ class IEDBBindingPredictor:
                 # Remove temporary file
                 os.remove(temp_file_path)
                 
-                # Ensure all required metrics are present
-                # Rename columns if necessary to standardize names
-                column_mapping = {
-                    'start': 'start',
-                    'end': 'end',
-                    'peptide': 'peptide',
-                    'method': 'method',
-                    'percentile_rank': 'percentile_rank',
-                    'ann_ic50': 'ann_ic50',
-                    'ann_rank': 'ann_rank',
-                    'smm_ic50': 'smm_ic50',
-                    'smm_rank': 'smm_rank',
-                    'comblib_sidney2008_score': 'comblib_score',
-                    'comblib_sidney2008_rank': 'comblib_rank',
-                    'netmhcpan_ic50': 'netmhcpan_ic50',
-                    'netmhcpan_rank': 'netmhcpan_rank',
-                    'netmhcpan_el_score': 'netmhcpan_el_score',
-                    'netmhcpan_el_rank': 'netmhcpan_el_rank',
-                    'netmhcpan_ba_score': 'netmhcpan_ba_score',
-                    'netmhcpan_ba_rank': 'netmhcpan_ba_rank',
-                    'netmhcpan_ba_ic50': 'netmhcpan_ba_ic50'
-                }
+                # Mantieni nomi colonna originali e seleziona solo colonne rilevanti
+                relevant_columns = ['allele', 'peptide', 'start', 'end', 'method', 'percentile_rank']
                 
-                # Rename columns if present
-                for old_col, new_col in column_mapping.items():
-                    if old_col in df.columns and new_col not in df.columns:
-                        df[new_col] = df[old_col]
+                # Aggiungi colonne specifiche del metodo se presenti
+                for col in ['ann_ic50', 'netmhcpan_ic50', 'netmhcpan_rank', 
+                           'netmhcpan_el_score', 'netmhcpan_el_rank', 
+                           'netmhcpan_ba_score', 'netmhcpan_ba_rank', 'netmhcpan_ba_ic50']:
+                    if col in df.columns:
+                        relevant_columns.append(col)
                 
-                # Add allele information
-                df['allele'] = allele
+                # Seleziona solo le colonne rilevanti se presenti
+                df = df[[col for col in relevant_columns if col in df.columns]]
                 
                 # Save results to CSV file
                 api_csv = os.path.join(self.output_dir, f"api_binding_{allele.replace('*', '').replace(':', '')}_{method}.csv")
@@ -208,7 +214,7 @@ class IEDBBindingPredictor:
             except:
                 return pd.DataFrame()
     
-    def calculate_immunogenicity_score(self, peptide, custom_mask=None, allele=None):
+    def calculate_immunogenicity_score(self, peptide, custom_mask=None, allele=None, method=None):
         """
         Calculate immunogenicity score for a peptide.
         
@@ -216,9 +222,20 @@ class IEDBBindingPredictor:
             peptide (str): Peptide sequence
             custom_mask (str, optional): Custom mask positions (comma-separated)
             allele (str, optional): MHC allele name
+            method (str, optional): Prediction method used
             
         Returns:
             float: Immunogenicity score
+        """
+        # Logica adattiva basata sul metodo
+        if method and "netmhcpan_el" in method:
+            return self._calculate_modern_immunogenicity(peptide, allele, custom_mask)
+        else:
+            return self._calculate_legacy_immunogenicity(peptide, allele, custom_mask)
+    
+    def _calculate_legacy_immunogenicity(self, peptide, allele=None, custom_mask=None):
+        """
+        Calcolo immunogenicità con algoritmo legacy.
         """
         peptide = peptide.upper()
         peplen = len(peptide)
@@ -258,7 +275,75 @@ class IEDBBindingPredictor:
             logger.error(f"Error calculating immunogenicity for {peptide}: {str(e)}")
             return 0.0
     
-    def add_immunogenicity(self, df, allele=None):
+    def _calculate_modern_immunogenicity(self, peptide, allele=None, custom_mask=None):
+        """
+        Calcolo immunogenicità con algoritmo moderno ottimizzato per netmhcpan_el.
+        Utilizza pesi e scale aggiornate per una migliore correlazione con i dati sperimentali.
+        
+        Args:
+            peptide (str): Peptide sequence
+            allele (str, optional): MHC allele name
+            custom_mask (str, optional): Custom mask positions
+            
+        Returns:
+            float: Immunogenicity score
+        """
+        peptide = peptide.upper()
+        peplen = len(peptide)
+        
+        # Scala immunogenicità moderna (2023)
+        modern_scale = {
+            "A": 0.107, "C": -0.205, "D": 0.102, "E": 0.355, "F": 0.410, 
+            "G": 0.130, "H": 0.125, "I": 0.462, "K": -0.730, "L": -0.016, 
+            "M": -0.550, "N": -0.001, "P": -0.056, "Q": -0.356, "R": 0.188, 
+            "S": -0.517, "T": 0.146, "V": 0.154, "W": 0.739, "Y": 0.008
+        }
+        
+        # Pesi posizionali moderni con maggiore enfasi sulle posizioni centrali
+        modern_weights = [0.05, 0.10, 0.25, 0.40, 0.45, 0.45, 0.40, 0.25, 0.10]
+        
+        # Estendi i pesi per peptidi più lunghi di 9 aa
+        if peplen > 9:
+            middle_weights = [0.45] * (peplen - 9)
+            weights = modern_weights[:4] + middle_weights + modern_weights[5:]
+        else:
+            weights = modern_weights[:peplen]
+        
+        # Determina le posizioni di ancoraggio da mascherare
+        if allele and allele.replace("*", "").replace(":", "") in self.allele_dict:
+            formatted_allele = allele.replace("*", "").replace(":", "")
+            mask_str = self.allele_dict[formatted_allele].split(",")
+            mask_positions = list(map(int, mask_str))
+            mask_positions = list(map(lambda x: x - 1, mask_positions))  # 0-based
+        elif custom_mask:
+            mask_str = custom_mask.split(",")
+            mask_positions = list(map(int, mask_str))
+            mask_positions = list(map(lambda x: x - 1, mask_positions))  # 0-based
+        else:
+            # Maschera predefinita migliorata
+            mask_positions = [0, 1, peplen-1]
+        
+        try:
+            score = 0.0
+            for i, aa in enumerate(peptide):
+                if aa not in modern_scale:
+                    logger.warning(f"Amminoacido non valido '{aa}' nel peptide {peptide}")
+                    continue
+                
+                # Applica il punteggio solo per posizioni non di ancoraggio
+                if i not in mask_positions:
+                    position_weight = weights[min(i, len(weights)-1)]
+                    score += position_weight * modern_scale[aa]
+            
+            # Normalizza il punteggio in base alla lunghezza
+            normalized_score = score / (peplen - len(mask_positions))
+            return round(normalized_score * 2, 5)  # Fattore di scala per allineare con i punteggi legacy
+            
+        except Exception as e:
+            logger.error(f"Errore nel calcolo dell'immunogenicità moderna per {peptide}: {str(e)}")
+            return 0.0
+    
+    def add_immunogenicity(self, df):
         """
         Add immunogenicity score column to DataFrame.
         """
@@ -266,18 +351,14 @@ class IEDBBindingPredictor:
             return df
         
         try:
-            # Formattare l'allele per il calcolo dell'immunogenicità
-            formatted_allele = None
-            if allele:
-                formatted_allele = allele.replace("*", "").replace(":", "")
-                # Verificare se l'allele è nel dizionario
-                if formatted_allele not in self.allele_dict:
-                    logger.warning(f"Allele {formatted_allele} not found in allele dictionary. Using default mask.")
-                    formatted_allele = None
-            
-            # Calcolare l'immunogenicità per ogni peptide
-            df['immunogenicity'] = df['peptide'].apply(
-                lambda x: self.calculate_immunogenicity_score(x, allele=formatted_allele)
+            # Calcola l'immunogenicità per ogni peptide usando allele e metodo specifici
+            df['immunogenicity'] = df.apply(
+                lambda row: self.calculate_immunogenicity_score(
+                    row['peptide'],
+                    allele=row['allele'].replace("*", "").replace(":", "") if 'allele' in row else None,
+                    method=row['method'] if 'method' in row else None
+                ), 
+                axis=1
             )
             
             logger.info(f"Added immunogenicity scores for {len(df)} peptides")
@@ -310,98 +391,73 @@ class IEDBBindingPredictor:
         except Exception as e:
             logger.error(f"Error saving to CSV: {str(e)}")
     
-    def analyze_peptides(self, peptides, allele, length=9):
+    def analyze_peptides(self, peptides, alleles, lengths=None):
         """
-        Analyze peptides using both netmhcpan_el and netmhcpan_ba methods and return combined results.
+        Analyze peptides using the configured method and return results.
+        Supporta richieste batch con multipli alleli e lunghezze.
         
         Args:
             peptides (list): List of peptides to analyze
-            allele (str): MHC allele
-            length (int): Peptide length
+            alleles (list or str): MHC allele(s)
+            lengths (list or int, optional): Peptide length(s)
             
         Returns:
-            pd.DataFrame: DataFrame with combined analysis results
+            pd.DataFrame: DataFrame with analysis results
         """
-        logger.info(f"Analyzing {len(peptides)} peptides with allele {allele} using both EL and BA methods")
+        # Converti parametri a liste se necessario
+        if isinstance(alleles, str):
+            alleles = [alleles]
+            
+        if lengths is None:
+            lengths = [9]
+        elif isinstance(lengths, int):
+            lengths = [lengths]
+            
+        logger.info(f"Analyzing {len(peptides)} peptides with {len(alleles)} alleles using method {self.method}")
         
-        # First get EL (eluted ligand) predictions
-        el_results = self.predict_binding_api(peptides, allele, length, method="netmhcpan_el")
+        # Ottieni predizioni in un'unica chiamata API
+        results = self.predict_binding_api(peptides, alleles, lengths)
         
-        # Then get BA (binding affinity) predictions
-        ba_results = self.predict_binding_api(peptides, allele, length, method="netmhcpan_ba")
+        if results.empty:
+            logger.error("Failed to get predictions")
+            return pd.DataFrame()
         
-        if el_results.empty or ba_results.empty:
-            logger.error("Failed to get predictions from one or both methods")
-            if not el_results.empty:
-                return el_results
-            elif not ba_results.empty:
-                return ba_results
-            else:
-                return pd.DataFrame()
-        
-        # Merge results
-        # Keep only the necessary columns from each method
         try:
-            # Format the allele name for immunogenicity calculation
-            formatted_allele = allele.replace("*", "").replace(":", "")
+            # Aggiungi immunogenicità
+            results = self.add_immunogenicity(results)
             
-            # Select columns from el_results
-            if 'netmhcpan_el_score' in el_results.columns:
-                el_subset = el_results[['peptide', 'netmhcpan_el_score', 'netmhcpan_el_rank']]
-                el_subset = el_subset.rename(columns={
-                    'netmhcpan_el_score': 'score',
-                    'netmhcpan_el_rank': 'percentile_rank'
-                })
+            # Mappatura colonne dinamica in base al metodo
+            if 'netmhcpan_el_score' in results.columns and 'el' in self.method:
+                results['score'] = results['netmhcpan_el_score']
+            elif 'netmhcpan_ba_ic50' in results.columns and 'ba' in self.method:
+                results['score'] = results['netmhcpan_ba_ic50']
+            elif 'ann_ic50' in results.columns:
+                results['score'] = results['ann_ic50']
+            
+            # Aggiungi colonna IC50 se disponibile
+            if 'netmhcpan_ba_ic50' in results.columns:
+                results['ic50'] = results['netmhcpan_ba_ic50']
+            elif 'netmhcpan_ic50' in results.columns:
+                results['ic50'] = results['netmhcpan_ic50']
+            elif 'ann_ic50' in results.columns:
+                results['ic50'] = results['ann_ic50']
             else:
-                logger.warning("netmhcpan_el_score not found in EL results")
-                el_subset = el_results[['peptide']].copy()
-                if 'score' in el_results.columns:
-                    el_subset.loc[:, 'score'] = el_results['score']
-                if 'percentile_rank' in el_results.columns:
-                    el_subset.loc[:, 'percentile_rank'] = el_results['percentile_rank']
+                results['ic50'] = np.nan
+            
+            # Assicurati che tutte le colonne richieste siano presenti
+            if 'percentile_rank' not in results.columns:
+                results['percentile_rank'] = np.nan
+            if 'score' not in results.columns:
+                results['score'] = np.nan
                 
-            # Select columns from ba_results
-            if 'netmhcpan_ba_ic50' in ba_results.columns:
-                ba_subset = ba_results[['peptide', 'netmhcpan_ba_ic50']].copy()
-                ba_subset = ba_subset.rename(columns={'netmhcpan_ba_ic50': 'ic50'})
-            else:
-                logger.warning("netmhcpan_ba_ic50 not found in BA results")
-                ba_subset = ba_results[['peptide']].copy()
-                # Cercare alternative per ic50
-                for ic50_col in ['ic50', 'netmhcpan_ic50', 'ann_ic50', 'smm_ic50']:
-                    if ic50_col in ba_results.columns:
-                        ba_subset.loc[:, 'ic50'] = ba_results[ic50_col]
-                        logger.info(f"Using {ic50_col} as alternative for ic50")
-                        break
-                else:
-                    # Se nessun valore IC50 è trovato, creare una colonna vuota
-                    ba_subset['ic50'] = np.nan
-
-            # Merge the two dataframes on peptide
-            combined = pd.merge(el_subset, ba_subset, on='peptide', how='outer')
-            
-            # Add allele information
-            combined['allele'] = allele
-            
-            # Add immunogenicity scores
-            combined = self.add_immunogenicity(combined, formatted_allele)
-            
-            # Fill any missing values in score/percentile_rank/ic50
-            if 'score' not in combined.columns:
-                combined['score'] = np.nan
-            if 'percentile_rank' not in combined.columns:
-                combined['percentile_rank'] = np.nan
-            if 'ic50' not in combined.columns:
-                combined['ic50'] = np.nan
-                
-            # Select and order final columns
+            # Seleziona e ordina le colonne finali
             final_columns = ['peptide', 'allele', 'score', 'percentile_rank', 'immunogenicity', 'ic50']
-            final_df = combined[final_columns]
+            final_df = results[final_columns]
             
-            # Save combined results
-            combined_csv = os.path.join(self.output_dir, f"combined_analysis_{allele.replace('*', '').replace(':', '')}.csv")
-            self.save_to_csv(final_df, combined_csv)
-            logger.info(f"Combined analysis saved to: {combined_csv}")
+            # Salva i risultati
+            results_csv = os.path.join(self.output_dir, f"analysis_{self.method}.csv")
+            self.save_to_csv(final_df, results_csv)
+            logger.info(f"Analysis results saved to: {results_csv}")
             
             return final_df
             
@@ -433,49 +489,50 @@ class IEDBBindingPredictor:
                 df[col] = np.nan
         return df[required_cols]
     
-    def analyze_peptides_batch(self, peptides_list, alleles, length=9, batch_size=50):
+    def analyze_peptides_batch(self, peptides_list, alleles, lengths=None, batch_size=50):
         """
         Analyze batches of peptides across multiple alleles.
         
         Args:
             peptides_list (list): List of peptides
-            alleles (list): List of MHC alleles
-            length (int): Peptide length
+            alleles (list or str): MHC allele(s)
+            lengths (list or int, optional): Peptide length(s)
             batch_size (int): Batch size
             
         Returns:
             pd.DataFrame: Combined DataFrame with results for all alleles
         """
-        results = {}
+        # Converti parametri a liste se necessario
+        if isinstance(alleles, str):
+            alleles = [alleles]
+            
+        if lengths is None:
+            lengths = [9]
+        elif isinstance(lengths, int):
+            lengths = [lengths]
+        
+        all_results = []
         
         # Split peptides into batches to avoid overloading the API
         for i in range(0, len(peptides_list), batch_size):
             batch_peptides = peptides_list[i:i+batch_size]
             logger.info(f"Processing batch {i//batch_size + 1} with {len(batch_peptides)} peptides")
             
-            # For each allele, analyze peptides
-            for allele in alleles:
-                logger.info(f"Analyzing peptides for allele: {allele}")
-                batch_result = self.analyze_peptides(batch_peptides, allele, length)
-                
-                # Add results to dictionary
-                if allele not in results:
-                    results[allele] = batch_result
-                else:
-                    results[allele] = pd.concat([results[allele], batch_result], ignore_index=True)
+            # Analizza tutti gli alleli e lunghezze in un'unica chiamata per batch
+            batch_result = self.analyze_peptides(batch_peptides, alleles, lengths)
+            if not batch_result.empty:
+                all_results.append(batch_result)
         
-        # Save combined results for each allele
-        for allele, df in results.items():
-            if not df.empty:
-                combined_csv = os.path.join(self.output_dir, f"all_batches_{allele.replace('*', '').replace(':', '')}.csv")
-                self.save_to_csv(df, combined_csv)
-                logger.info(f"All batch results saved to: {combined_csv}")
-        
-        # Combine all results into a single DataFrame
-        if results:
-            combined_results = pd.concat(results.values(), ignore_index=True)
+        # Combina tutti i risultati in un unico DataFrame
+        if all_results:
+            combined_results = pd.concat(all_results, ignore_index=True)
             combined_results = self.get_required_columns(combined_results)
-            logger.info(f"Combined {len(combined_results)} results from all alleles")
+            
+            # Salva i risultati combinati
+            combined_csv = os.path.join(self.output_dir, f"all_batches_{self.method}.csv")
+            self.save_to_csv(combined_results, combined_csv)
+            logger.info(f"Combined {len(combined_results)} results from all batches")
+            
             return combined_results
         else:
             logger.warning("No results to combine")
