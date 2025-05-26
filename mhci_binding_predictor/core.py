@@ -160,7 +160,7 @@ class IEDBBindingPredictor:
                 
                 # Verify there are results
                 if len(results) < 2:
-                    logger.warning(f"No results from IEDB API for allele {allele}")
+                    logger.warning(f"No results from IEDB API for alleles {','.join(alleles)}")
                     return pd.DataFrame()
                 
                 # Create temporary file with results
@@ -188,7 +188,8 @@ class IEDBBindingPredictor:
                 df = df[[col for col in relevant_columns if col in df.columns]]
                 
                 # Save results to CSV file
-                api_csv = os.path.join(self.output_dir, f"api_binding_{allele.replace('*', '').replace(':', '')}_{method}.csv")
+                allele_str = '_'.join([a.replace('*', '').replace(':', '') for a in alleles])
+                api_csv = os.path.join(self.output_dir, f"api_binding_{allele_str}_{method}.csv")
                 self.save_to_csv(df, api_csv)
                 logger.info(f"API results saved to: {api_csv}")
                 
@@ -462,16 +463,8 @@ class IEDBBindingPredictor:
             return final_df
             
         except Exception as e:
-            logger.error(f"Error merging predictions: {str(e)}")
-            # Return one of the results sets if available
-            if not el_results.empty:
-                logger.info("Returning only EL results due to merge error")
-                return el_results
-            elif not ba_results.empty:
-                logger.info("Returning only BA results due to merge error")
-                return ba_results
-            else:
-                return pd.DataFrame()
+            logger.error(f"Error processing predictions: {str(e)}")
+            return pd.DataFrame()
     
     def get_required_columns(self, df):
         """
