@@ -16,10 +16,10 @@ EXAMPLES:
 """)
 @click.option('--output-dir', default='./output', 
              help='Output directory for results (default: ./output)')
-@click.option('--csv-sep', default=',', 
-             help='CSV field separator (default: ",")')
-@click.option('--decimal-sep', default='.', 
-             help='Decimal separator for numeric values (default: ".")')
+@click.option('--csv-sep', default=';', 
+             help='CSV field separator (default: ";")')
+@click.option('--decimal-sep', default=',', 
+             help='Decimal separator for numeric values (default: ",")')
 @click.pass_context
 def main(ctx, output_dir, csv_sep, decimal_sep):
     """MHC-I Binding Prediction and Analysis Tool
