@@ -131,7 +131,7 @@ Results include:
 
 For identifying strong binders:
 - **EL Score**: ≥ 0.5
-- **Percentile Rank**: ≤ 2.0
+- **Percentile Rank**: ≤ 0.5
 - **IC50**: ≤ 500 nM
 - **Immunogenicity**: ≥ 0.5 (relative score)
 
