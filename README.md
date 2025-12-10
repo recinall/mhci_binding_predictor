@@ -130,10 +130,10 @@ Results include:
 ## Recommended Thresholds
 
 For identifying strong binders:
-- **EL Score**: ≥ 0.5
+- **EL Score**: ≥ 0
 - **Percentile Rank**: ≤ 0.5
 - **IC50**: ≤ 500 nM
-- **Immunogenicity**: ≥ 0.5 (relative score)
+- **Immunogenicity**: ≥ 0 (relative score)
 
 ## Technical Notes
 
