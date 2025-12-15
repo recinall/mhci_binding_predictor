@@ -772,7 +772,7 @@
             formData.append('length', lengths.join(','));
 
             try {
-                const response = await fetch('http://tools-cluster-interface.iedb.org/tools_api/mhci/', {
+                const response = await fetch('https://tools-cluster-interface.iedb.org/tools_api/mhci/', {
                     method: 'POST',
                     body: formData
                 });
@@ -811,17 +811,22 @@
         }
 
         function normalizeResults(results) {
+            // API returns: allele, seq_num, start, end, length, peptide, core, icore, score, percentile_rank
+            // For BA: allele, seq_num, start, end, length, peptide, core, icore, ic50, percentile_rank
             return results.map(row => {
                 const normalized = {};
-                
-                normalized.peptide = row.seq || row.sequence || row.epitope || row.peptide_seq || row.peptide || '';
-                normalized.allele = row.mhc || row.hla || row.mhc_allele || row.hla_allele || row.allele || '';
-                normalized.el_score = parseFloat(row.netmhcpan_el_score || row.score || row.el_score) || null;
-                normalized.percentile_rank = parseFloat(row.rank || row.percentile_rank || row.el_rank) || null;
-                normalized.ic50 = parseFloat(row.netmhcpan_ba_ic50 || row.ic50 || row.ba_ic50) || null;
-                
+
+                // API returns 'peptide' and 'allele' directly
+                normalized.peptide = row.peptide || row.seq || row.sequence || row.epitope || row.peptide_seq || '';
+                normalized.allele = row.allele || row.mhc || row.hla || row.mhc_allele || row.hla_allele || '';
+                // API returns 'score' for EL method
+                normalized.el_score = parseFloat(row.score || row.netmhcpan_el_score || row.el_score) || null;
+                normalized.percentile_rank = parseFloat(row.percentile_rank || row.rank || row.el_rank) || null;
+                // API returns 'ic50' for BA method
+                normalized.ic50 = parseFloat(row.ic50 || row.netmhcpan_ba_ic50 || row.ba_ic50) || null;
+
                 normalized.immunogenicity = calculateImmunogenicity(normalized.peptide, normalized.allele);
-                
+
                 return normalized;
             });
         }

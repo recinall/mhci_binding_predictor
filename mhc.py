@@ -77,32 +77,36 @@ class IEDBBindingPredictor:
         logger.info(f"API response columns: {list(df.columns)}")
         
         # Common column name mappings from IEDB API
+        # API returns: allele, seq_num, start, end, length, peptide, core, icore, score, percentile_rank
+        # For BA: allele, seq_num, start, end, length, peptide, core, icore, ic50, percentile_rank
         column_mappings = {
-            # Peptide sequence columns
+            # Peptide sequence columns - API returns 'peptide' directly
+            'peptide': 'peptide',
             'seq': 'peptide',
             'sequence': 'peptide',
             'epitope': 'peptide',
             'peptide_seq': 'peptide',
-            
-            # Allele columns
+
+            # Allele columns - API returns 'allele' directly
+            'allele': 'allele',
             'mhc': 'allele',
             'hla': 'allele',
             'mhc_allele': 'allele',
             'hla_allele': 'allele',
-            
-            # Score columns
+
+            # Score columns - API returns 'score' for EL method
+            'score': 'el_score',
             'netmhcpan_el_score': 'el_score',
-            'netmhcpan_ba_ic50': 'ic50',
             'netmhcpan_ba_score': 'ba_score',
-            'score': 'el_score',  # Default score mapping
-            
-            # Percentile columns
+
+            # Percentile columns - API returns 'percentile_rank' directly
             'percentile_rank': 'percentile_rank',
             'rank': 'percentile_rank',
             'el_rank': 'percentile_rank',
-            
-            # IC50 columns  
+
+            # IC50 columns - API returns 'ic50' directly for BA method
             'ic50': 'ic50',
+            'netmhcpan_ba_ic50': 'ic50',
             'ba_ic50': 'ic50'
         }
         
@@ -142,7 +146,7 @@ class IEDBBindingPredictor:
         """
         Make a single optimized API request to IEDB.
         """
-        url = "http://tools-cluster-interface.iedb.org/tools_api/mhci/"
+        url = "https://tools-cluster-interface.iedb.org/tools_api/mhci/"
         
         # Format sequences as FASTA
         fasta_sequences = "\n".join([f">peptide{i+1}\n{p}" for i, p in enumerate(peptides)])
