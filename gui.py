@@ -124,6 +124,19 @@ def generate_all_variants(patterns: List[str], lengths: List[int]) -> List[str]:
     return sorted(list(all_variants))
 
 
+VALID_AMINO_ACIDS = set("ACDEFGHIKLMNPQRSTVWY")
+
+
+def validate_peptide(peptide: str) -> tuple:
+    peptide = peptide.upper().strip()
+    invalid_chars = set(peptide) - VALID_AMINO_ACIDS
+    if invalid_chars:
+        return False, f"Invalid characters: {', '.join(sorted(invalid_chars))}"
+    if len(peptide) < 8 or len(peptide) > 15:
+        return False, f"Length {len(peptide)} not in range 8-15"
+    return True, peptide
+
+
 class ApiWorker(QThread):
     finished = Signal(list)
     error = Signal(str)
@@ -148,25 +161,35 @@ class ApiWorker(QThread):
 
         try:
             response = requests.post(self.api_url, data=data, timeout=60)
+
             if response.status_code != 200:
                 self.progress.emit(f"API error: {response.status_code}")
                 return []
 
-            lines = response.text.strip().split("\n")
+            text = response.text.strip()
+
+            if "invalid character" in text.lower() or "error" in text.lower() or not text.startswith("allele\t"):
+                self.progress.emit(f"API error: {text[:100]}")
+                return []
+
+            lines = text.split("\n")
+
             if len(lines) < 2:
-                self.progress.emit(f"No results for {allele} with lengths {lengths}")
                 return []
 
             headers = lines[0].split("\t")
             results = []
+
             for line in lines[1:]:
+                if not line.strip():
+                    continue
                 values = line.split("\t")
                 row = {}
                 for j, header in enumerate(headers):
                     if j < len(values):
                         row[header.lower()] = values[j]
                 results.append(row)
-            self.progress.emit(f"Got {len(results)} results for {allele}")
+
             return results
         except Exception as e:
             self.progress.emit(f"Request error: {str(e)}")
@@ -174,10 +197,27 @@ class ApiWorker(QThread):
 
     def run(self):
         try:
+            valid_peptides = []
+            invalid_peptides = []
+
+            for pep in self.peptides:
+                is_valid, result = validate_peptide(pep)
+                if is_valid:
+                    valid_peptides.append(result)
+                else:
+                    invalid_peptides.append(f"{pep}: {result}")
+
+            if invalid_peptides:
+                self.progress.emit(f"Skipped {len(invalid_peptides)} invalid peptides")
+
+            if not valid_peptides:
+                self.error.emit("No valid peptides to analyze")
+                return
+
             all_results = []
             total_alleles = len(self.alleles)
 
-            self.progress.emit(f"Starting analysis: {len(self.peptides)} peptides, {total_alleles} alleles, lengths={self.lengths}")
+            self.progress.emit(f"Analyzing {len(valid_peptides)} peptides with {total_alleles} allele(s)")
 
             for i, allele in enumerate(self.alleles):
                 self.progress.emit(f"Processing allele {i + 1}/{total_alleles}: {allele}")
@@ -185,13 +225,11 @@ class ApiWorker(QThread):
                 if i > 0:
                     self.msleep(int(self.delay * 1000))
 
-                el_results = self.make_api_request("netmhcpan_el", self.peptides, allele, self.lengths)
-                self.progress.emit(f"EL results: {len(el_results)} rows")
+                el_results = self.make_api_request("netmhcpan_el", valid_peptides, allele, self.lengths)
 
                 if el_results:
                     self.msleep(int(self.delay * 1000))
-                    ba_results = self.make_api_request("netmhcpan_ba", self.peptides, allele, self.lengths)
-                    self.progress.emit(f"BA results: {len(ba_results)} rows")
+                    ba_results = self.make_api_request("netmhcpan_ba", valid_peptides, allele, self.lengths)
 
                     ba_dict = {}
                     for ba_row in ba_results:
@@ -207,29 +245,36 @@ class ApiWorker(QThread):
                                 combined["ic50"] = ba_row["ic50"]
                         all_results.append(combined)
 
-            self.progress.emit(f"Total raw results: {len(all_results)}")
-
             normalized = []
             for row in all_results:
-                peptide = row.get("peptide", row.get("seq", ""))
-                allele_val = row.get("allele", row.get("mhc", ""))
+                peptide = row.get("peptide") or row.get("seq") or ""
+                allele_val = row.get("allele") or row.get("mhc") or ""
 
-                try:
-                    el_score = float(row.get("score", row.get("el_score", 0)) or 0)
-                except (ValueError, TypeError):
-                    el_score = None
+                el_score = None
+                score_val = row.get("score") or row.get("el_score")
+                if score_val is not None and score_val != "":
+                    try:
+                        el_score = float(score_val)
+                    except (ValueError, TypeError):
+                        pass
 
-                try:
-                    percentile = float(row.get("percentile_rank", row.get("rank", 0)) or 0)
-                except (ValueError, TypeError):
-                    percentile = None
+                percentile = None
+                pct_val = row.get("percentile_rank") or row.get("rank")
+                if pct_val is not None and pct_val != "":
+                    try:
+                        percentile = float(pct_val)
+                    except (ValueError, TypeError):
+                        pass
 
-                try:
-                    ic50 = float(row.get("ic50", 0) or 0)
-                except (ValueError, TypeError):
-                    ic50 = None
+                ic50 = None
+                ic50_val = row.get("ic50")
+                if ic50_val is not None and ic50_val != "":
+                    try:
+                        ic50 = float(ic50_val)
+                    except (ValueError, TypeError):
+                        pass
 
-                immunogenicity = calculate_immunogenicity(peptide, allele_val)
+                immunogenicity = calculate_immunogenicity(peptide, allele_val) if peptide else None
 
                 normalized.append({
                     "peptide": peptide,
@@ -240,7 +285,7 @@ class ApiWorker(QThread):
                     "immunogenicity": immunogenicity
                 })
 
-            self.progress.emit(f"Emitting {len(normalized)} normalized results")
+            self.progress.emit(f"Completed: {len(normalized)} results")
             self.finished.emit(normalized)
 
         except Exception as e:
@@ -268,8 +313,10 @@ class ResultsTable(QTableWidget):
         self.setRowCount(len(results))
 
         for i, row in enumerate(results):
-            self.setItem(i, 0, QTableWidgetItem(str(row.get("peptide", ""))))
-            self.setItem(i, 1, QTableWidgetItem(str(row.get("allele", ""))))
+            peptide_val = str(row.get("peptide", ""))
+            allele_val = str(row.get("allele", ""))
+            self.setItem(i, 0, QTableWidgetItem(peptide_val))
+            self.setItem(i, 1, QTableWidgetItem(allele_val))
 
             el_score = row.get("el_score")
             el_item = QTableWidgetItem(f"{el_score:.4f}" if el_score is not None else "N/A")

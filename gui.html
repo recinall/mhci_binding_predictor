@@ -762,9 +762,23 @@
             }
         }
 
+        const VALID_AMINO_ACIDS = new Set('ACDEFGHIKLMNPQRSTVWY'.split(''));
+
+        function validatePeptide(peptide) {
+            peptide = peptide.toUpperCase().trim();
+            const invalidChars = [...peptide].filter(c => !VALID_AMINO_ACIDS.has(c));
+            if (invalidChars.length > 0) {
+                return { valid: false, error: `Invalid characters: ${[...new Set(invalidChars)].join(', ')}` };
+            }
+            if (peptide.length < 8 || peptide.length > 15) {
+                return { valid: false, error: `Length ${peptide.length} not in range 8-15` };
+            }
+            return { valid: true, peptide: peptide };
+        }
+
         async function makeApiRequest(method, peptides, alleles, lengths) {
             const fastaSequences = peptides.map((p, i) => `>peptide${i+1}\n${p}`).join('\n');
-            
+
             const formData = new FormData();
             formData.append('method', method);
             formData.append('sequence_text', fastaSequences);
@@ -790,20 +804,30 @@
         }
 
         function parseApiResponse(csvText) {
-            const lines = csvText.trim().split('\n');
+            const text = csvText.trim();
+
+            if (text.toLowerCase().includes('invalid character') ||
+                text.toLowerCase().includes('error') ||
+                !text.startsWith('allele\t')) {
+                console.error('API returned error:', text.substring(0, 200));
+                return [];
+            }
+
+            const lines = text.split('\n');
             if (lines.length < 2) return [];
 
             const headers = lines[0].split('\t');
             const results = [];
 
             for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
                 const values = lines[i].split('\t');
                 const row = {};
-                
+
                 headers.forEach((header, index) => {
                     row[header.toLowerCase()] = values[index];
                 });
-                
+
                 results.push(row);
             }
 
@@ -832,6 +856,28 @@
         }
 
         async function runPredictionsForPeptides(peptides, alleles, lengths, delay) {
+            const validPeptides = [];
+            const invalidPeptides = [];
+
+            for (const pep of peptides) {
+                const result = validatePeptide(pep);
+                if (result.valid) {
+                    validPeptides.push(result.peptide);
+                } else {
+                    invalidPeptides.push(`${pep}: ${result.error}`);
+                }
+            }
+
+            if (invalidPeptides.length > 0) {
+                updateStatus(`Skipped ${invalidPeptides.length} invalid peptide(s)`);
+                console.warn('Invalid peptides:', invalidPeptides);
+            }
+
+            if (validPeptides.length === 0) {
+                showAlert('No valid peptides to analyze. Peptides must contain only valid amino acids (ACDEFGHIKLMNPQRSTVWY) and be 8-15 characters long.');
+                return;
+            }
+
             const allResults = [];
 
             for (let i = 0; i < alleles.length; i++) {
@@ -843,11 +889,11 @@
                 }
 
                 try {
-                    const elResults = await makeApiRequest('netmhcpan_el', peptides, [allele], lengths);
+                    const elResults = await makeApiRequest('netmhcpan_el', validPeptides, [allele], lengths);
                     
                     if (elResults.length > 0) {
                         await new Promise(resolve => setTimeout(resolve, delay * 1000));
-                        const baResults = await makeApiRequest('netmhcpan_ba', peptides, [allele], lengths);
+                        const baResults = await makeApiRequest('netmhcpan_ba', validPeptides, [allele], lengths);
                         
                         const combined = elResults.map(elRow => {
                             const baRow = baResults.find(ba => 
